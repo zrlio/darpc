@@ -1,25 +1,4 @@
-/*
- * DaRPC: Data Center Remote Procedure Call
- *
- * Author: Patrick Stuedi <stu@zurich.ibm.com>
- *
- * Copyright (C) 2016, IBM Corporation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- *
- */
-
-package com.ibm.darpc.examples.client;
+package com.ibm.darpc.examples.benchmark;
 
 import java.io.FileOutputStream;
 import java.net.InetAddress;
@@ -35,11 +14,10 @@ import com.ibm.darpc.RpcEndpointGroup;
 import com.ibm.darpc.RpcFuture;
 import com.ibm.darpc.RpcPassiveEndpointGroup;
 import com.ibm.darpc.RpcStream;
-import com.ibm.darpc.examples.protocol.RdmaRpcProtocol;
-import com.ibm.darpc.examples.protocol.RdmaRpcProtocol.*;
+import com.ibm.darpc.examples.benchmark.RdmaRpcProtocol.*;
 import com.ibm.disni.util.*;
 
-public class JVerbsRpcClient {
+public class DaRPCClient {
 	public static enum BenchmarkType {
 		UNDEFINED
 	};	
@@ -87,18 +65,11 @@ public class JVerbsRpcClient {
 					if (response == null){
 						response = new RdmaRpcResponse();
 					}
-					request.setParam(i);
-					if (response.getName() == request.getParam() + 1){
-						System.out.println("############## wrong RPC response init value!!");
-					}
 					RpcFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.request(request, response, true);
 					
 					switch (queryMode) {
 					case FUTURE_POLL:
 						while (!future.isDone()) {
-						}
-						if (future.getResponse().getName() != future.getRequest().getParam() + 1){
-							System.out.println("############## wrong RPC return value!!");
 						}
 //						System.out.println("value: i " + i + ", response " + future.getResponse().getName() + ", ticket " + future.getTicket() + ", eid " + clientEp.getEndpointId());
 						freeResponses.add(future.getResponse());
@@ -204,7 +175,7 @@ public class JVerbsRpcClient {
 		int threadCount = 1;
 		int mode = ClientThread.FUTURE_POLL;
 		boolean shared = false;
-		int rpcpipeline = 100;
+		int rpcpipeline = 2;
 		int poolsize = 3;
 		int connections = 1;
 		int clienttimeout = 3000;
@@ -213,7 +184,7 @@ public class JVerbsRpcClient {
 		String[] _args = args;
 		if (args.length < 1) {
 			System.exit(0);
-		} else if (args[0].equals(JVerbsRpcClient.class.getCanonicalName())) {
+		} else if (args[0].equals(DaRPCClient.class.getCanonicalName())) {
 			_args = new String[args.length - 1];
 			for (int i = 0; i < _args.length; i++) {
 				_args[i] = args[i + 1];
@@ -292,18 +263,6 @@ public class JVerbsRpcClient {
 		}	
 		System.out.println("poolsize " + poolsize + ", affinity size " + clusterAffinities.length);
 		
-		if ((threadCount % connections) != 0){
-			throw new Exception("thread count needs to be a multiple of connections");
-		}
-		
-		int threadsperconnection = threadCount / connections;
-		
-		RpcClientEndpoint<?,?>[] rpcConnections = new RpcClientEndpoint[connections];
-		System.out.println("connections " + rpcConnections.length);
-		Thread[] workers = new Thread[threadCount];
-		System.out.println("total threads " + workers.length);
-		ClientThread[] benchmarkTask = new ClientThread[threadCount];
-		
 		InetAddress localHost = InetAddress.getByName(ipAddress);
 		InetSocketAddress address = new InetSocketAddress(localHost, 1919);		
 		RdmaRpcProtocol rpcProtocol = new RdmaRpcProtocol();
@@ -314,36 +273,22 @@ public class JVerbsRpcClient {
 			group = RpcPassiveEndpointGroup.createDefault(rpcProtocol, clusterAffinities, 100, maxinline, false, rpcpipeline, 4, rpcpipeline);
 		}
 		
-		int k = 0;
-		for (int i = 0; i < rpcConnections.length; i++){
-			System.out.println("starting connection " + i);
-			RpcClientEndpoint<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> clientEp = group.createClientEndpoint();
-			clientEp.connect(address, 1000);
-			rpcConnections[i] = clientEp;
+		System.out.println("starting connection ");
+		RpcClientEndpoint<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> clientEp = group.createClientEndpoint();
+		clientEp.connect(address, 1000);
 			
-			for (int j = 0; j < threadsperconnection; j++){
-				System.out.println("starting thread " + j);
-				benchmarkTask[k] = new ClientThread(clientEp, loop, address, mode, rpcpipeline, clienttimeout);
-				k++;
-			}
-		}
+		ClientThread benchmark = new ClientThread(clientEp, loop, address, mode, rpcpipeline, clienttimeout);
 
 		StopWatch stopWatchThroughput = new StopWatch();
+		Thread workers = new Thread(benchmark);
 		stopWatchThroughput.start();		
-		for(int i = 0; i < threadCount;i++){
-			workers[i] = new Thread(benchmarkTask[i]);
-			workers[i].start();
-		}
-		for(int i = 0; i < threadCount;i++){
-			workers[i].join();
-			System.out.println("finished joining worker " + i);
-		}
+		workers.start();
+		workers.join();
+		System.out.println("finished joining worker ");
 		double executionTime = (double) stopWatchThroughput.getExecutionTime() / 1000.0;
 		System.out.println("executionTime " + executionTime);
 		double ops = 0;
-		for (int i = 0; i < threadCount; i++) {
-			ops += benchmarkTask[i].getOps();
-		}
+		ops += benchmark.getOps();
 		System.out.println("ops " + ops);
 		double throughput = 0.0;
 		double latency = 0.0;
@@ -376,16 +321,14 @@ public class JVerbsRpcClient {
 		dataChannel.close();		
 		dataStream.close();
 		
-		for (int i = 0; i < rpcConnections.length; i++){
-			rpcConnections[i].close();
-		}
+		clientEp.close();
 		group.close();
 		
 		System.out.println("done");
 	}
 	
 	public static void main(String[] args) throws Exception { 
-		JVerbsRpcClient rpcClient = new JVerbsRpcClient();
+		DaRPCClient rpcClient = new DaRPCClient();
 		rpcClient.launch(args);		
 		System.exit(0);
 	}

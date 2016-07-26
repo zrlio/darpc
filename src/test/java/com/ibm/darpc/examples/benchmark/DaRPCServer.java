@@ -9,7 +9,7 @@ import com.ibm.darpc.examples.benchmark.RdmaRpcProtocol;
 import com.ibm.disni.rdma.endpoints.RdmaServerEndpoint;
 import com.ibm.disni.util.*;
 
-public class JVerbsRpcServer {
+public class DaRPCServer {
 	private String ipAddress; 
 	private int poolsize = 3;
 	private int rpcpipeline = 2;
@@ -90,7 +90,7 @@ public class JVerbsRpcServer {
 		String[] _args = args;
 		if (args.length < 1) {
 			System.exit(0);
-		} else if (args[0].equals(JVerbsRpcServer.class.getCanonicalName())) {
+		} else if (args[0].equals(DaRPCServer.class.getCanonicalName())) {
 			_args = new String[args.length - 1];
 			for (int i = 0; i < _args.length; i++) {
 				_args[i] = args[i + 1];
@@ -134,7 +134,7 @@ public class JVerbsRpcServer {
 	}
 	
 	public static void main(String[] args) throws Exception { 
-		JVerbsRpcServer rpcServer = new JVerbsRpcServer();
+		DaRPCServer rpcServer = new DaRPCServer();
 		rpcServer.launch(args);		
 	}	
 }
