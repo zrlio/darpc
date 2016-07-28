@@ -12,6 +12,6 @@ The unique features of DaRPC include:
 DaRPC is built using [Apache Maven](http://maven.apache.org/).
 To build DaRPC and its example programs, execute the following steps:
 
-1. Obtain a copy of DaRPC from [Github](https://gitlabhost.rtp.raleigh.ibm.com/9D5157848/darpc)
+1. Obtain a copy of DaRPC from [Github](https://github.com/zrlio/darpc)
 2. Compile and package the source using: mvn -DskipTests install
 
