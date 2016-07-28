@@ -1,4 +1,4 @@
-# DaRPC
+# DaRPC: Data Center Remote Procedure Call
 
 DaRPC is a Java library that provides ultra-low latency RPC for RDMA capable network interfaces. 
 The unique features of DaRPC include:
