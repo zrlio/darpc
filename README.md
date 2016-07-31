@@ -13,5 +13,6 @@ DaRPC is built using [Apache Maven](http://maven.apache.org/).
 To build DaRPC and its example programs, execute the following steps:
 
 1. Obtain a copy of DaRPC from [Github](https://github.com/zrlio/darpc)
+2. Make sure your local maven repo contains DiSNI, if not build DiSNI from [Github](https://github.com/zrlio/disni)
 2. Compile and package the source using: mvn -DskipTests install
 
