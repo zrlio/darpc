@@ -25,8 +25,8 @@ import java.io.IOException;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.ibm.disni.rdma.verbs.*;
-import com.ibm.disni.rdma.endpoints.*;
+import com.ibm.disni.verbs.*;
+import com.ibm.disni.endpoints.*;
 
 public class RpcPassiveEndpointGroup<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RpcEndpointGroup<R,T> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");

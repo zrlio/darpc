@@ -23,12 +23,10 @@ package com.ibm.darpc;
 
 import java.io.IOException;
 import java.util.concurrent.LinkedBlockingDeque;
-import java.util.concurrent.atomic.AtomicLong;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ibm.disni.rdma.endpoints.*;
+import com.ibm.disni.endpoints.*;
 
 public class RpcStreamPassive <R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RpcStream<R,T> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");

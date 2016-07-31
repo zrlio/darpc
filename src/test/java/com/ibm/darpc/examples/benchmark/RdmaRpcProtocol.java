@@ -4,8 +4,6 @@ import java.nio.ByteBuffer;
 
 import com.ibm.darpc.RdmaRpcMessage;
 import com.ibm.darpc.RdmaRpcService;
-import com.ibm.darpc.examples.protocol.RdmaRpcProtocol.RdmaRpcRequest;
-import com.ibm.darpc.examples.protocol.RdmaRpcProtocol.RdmaRpcResponse;
 
 public class RdmaRpcProtocol extends RdmaRpcService<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> {
 	public static final int FUNCTION_FOO = 1;

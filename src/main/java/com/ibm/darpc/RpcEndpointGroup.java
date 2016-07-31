@@ -27,8 +27,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ibm.disni.rdma.verbs.*;
-import com.ibm.disni.rdma.endpoints.*;
+import com.ibm.disni.verbs.*;
+import com.ibm.disni.endpoints.*;
 
 
 public abstract class RpcEndpointGroup<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RdmaEndpointGroup<RpcClientEndpoint<R,T>> {

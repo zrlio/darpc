@@ -23,11 +23,6 @@ package com.ibm.darpc;
 
 import java.util.concurrent.Future;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import com.ibm.disni.util.*;
-
 public abstract class RpcFuture<R extends RdmaRpcMessage, T extends RdmaRpcMessage> implements Future<T> {
 	protected static int RPC_PENDING = 0;
 	protected static int RPC_DONE = 1;

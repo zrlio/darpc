@@ -23,7 +23,6 @@ package com.ibm.darpc;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class RpcFutureActive<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RpcFuture<R,T> {

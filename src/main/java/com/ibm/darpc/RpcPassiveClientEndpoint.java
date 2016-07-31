@@ -23,15 +23,13 @@ package com.ibm.darpc;
 
 import java.io.IOException;
 import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ibm.disni.rdma.verbs.*;
-import com.ibm.disni.rdma.endpoints.*;
+import com.ibm.disni.verbs.*;
 
 public class RpcPassiveClientEndpoint<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RpcClientEndpoint<R,T> {
 	private static Logger logger = LoggerFactory.getLogger("com.ibm.darpc");

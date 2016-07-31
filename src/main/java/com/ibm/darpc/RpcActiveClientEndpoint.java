@@ -24,7 +24,7 @@ package com.ibm.darpc;
 import java.io.IOException;
 import java.util.concurrent.ArrayBlockingQueue;
 
-import com.ibm.disni.rdma.verbs.*;
+import com.ibm.disni.verbs.*;
 
 public class RpcActiveClientEndpoint<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RpcClientEndpoint<R,T> {
 	private int streamCount;
