@@ -100,7 +100,6 @@ public class DaRPCClient {
 						if (future.getResponse().getName() != future.getRequest().getParam() + 1){
 							System.out.println("############## wrong RPC return value!!");
 						}
-//						System.out.println("value: i " + i + ", response " + future.getResponse().getName() + ", ticket " + future.getTicket() + ", eid " + clientEp.getEndpointId());
 						freeResponses.add(future.getResponse());
 						stream.clear();
 						break;
@@ -109,14 +108,12 @@ public class DaRPCClient {
 						while (future == null) {
 							future = stream.poll();
 						}
-//						System.out.println("i " + i + ", response " + future.getResponse().getName() + ", ticket " + future.getTicket() + ", eid " + clientEp.getEndpointId());
 						freeResponses.add(future.getResponse());
 						stream.clear();
 						break;		
 					case FUTURE_TAKE:
 						if (future.get(clienttimeout, TimeUnit.MILLISECONDS) != null){
 							RdmaRpcResponse val = future.getResponse();
-//							System.out.println("join: i " + i + ", response " + val.getName() + ", ticket " + future.getTicket() + ", eid " + clientEp.getEndpointId());
 							freeResponses.add(future.getResponse());
 						} else {
 							System.out.println("invalid value");
@@ -126,11 +123,8 @@ public class DaRPCClient {
 					case STREAM_TAKE:
 						future = stream.take(clienttimeout);
 						if (future != null){
-//							System.out.println("i " + i + ", response " + future.getResponse().getName() + ", ticket " + future.getTicket() + ", eid " + clientEp.getEndpointId());
 							freeResponses.add(future.getResponse());
-						} else {
-//							System.out.println("invalid value");
-						}
+						} 
 						stream.clear();
 						break;
 					case BATCH_STREAM_TAKE:
@@ -196,8 +190,6 @@ public class DaRPCClient {
 	}
 	
 	public void launch(String[] args) throws Exception {
-		String _provider = "mem";
-		String _logLevel = "Info";
 		String ipAddress = ""; 
 		int size = 24;
 		int loop = 100;
