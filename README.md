@@ -88,7 +88,9 @@ To build DaRPC and its example programs, execute the following steps:
 	rpcEndpoint.connect(address);
 	RpcStream<RdmaRpcRequest, RdmaRpcResponse> stream = rpcEndpoint.createStream();
 	RdmaRpcRequest request = new RdmaRpcRequest();
+	request.setParam(77);
 	RdmaRpcResponse response = new RdmaRpcResponse();
 	RpcFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.request(request, response);
 	...
 	response = future.get();
+	System.out.println("RPC completed, return value " + response.getReturnValue()); //should print 78
