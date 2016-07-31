@@ -18,7 +18,7 @@ To build DaRPC and its example programs, execute the following steps:
 
 ## How to Run a Simple Example
 
-1. After building DaRPC, make sure DaRPC and its dependencies are in the classpath (e.g., darpc-1.0-jar-with-dependencies.jar). Also add the DiSNI test jar (darpc-1.0-tests.jar) which includes the examples.
+1. After building DaRPC, make sure DaRPC and its dependencies are in the classpath (e.g., darpc-1.0-jar-with-dependencies.jar). Also add the DaRPC test jar (darpc-1.0-tests.jar) which includes the examples.
 2. Make sure libdisni and libaffinity are both part of the LD_LIBRARY_PATH
 3. Make sure the RDMA network interface is configured and up on the test machines (run ibv\_devices to see the list of RDMA NICs). If your machine does not have RDMA hardware, you can also use SoftiWARP from [Github](https://github.com/zrlio/softiwarp). 
 4. Run the server\: java com.ibm.darpc.examples.server.DaRPCServer -a \<server IP\>
