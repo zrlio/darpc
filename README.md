@@ -28,7 +28,8 @@ To build DaRPC and its example programs, execute the following steps:
 
 1. Define the RPC request and response messages
 
-	{ public static class RdmaRpcRequest implements RdmaRpcMessage {
+```
+	public static class RdmaRpcRequest implements RdmaRpcMessage {
 		public static int SERIALIZED_SIZE = 16;
 		
 		private int cmd;
@@ -54,5 +55,5 @@ To build DaRPC and its example programs, execute the following steps:
 			return SERIALIZED_SIZE;
 		}
 	}
-	}
+```
 	
