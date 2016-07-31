@@ -349,12 +349,10 @@ public class DaRPCClient {
 		double latency = 0.0;
 		if (executionTime > 0) {
 			throughput = ops / executionTime;
-			System.out.println("throughput " + throughput);
 			double _threadcount = (double) threadCount;
 			double throughputperclient = throughput / _threadcount;
 			double norm = 1.0;
 			latency = norm / throughputperclient * 1000000.0;
-//			System.out.println("execution time " + executionTime + ", ops " + ops);
 		}		
 
 		String dataFilename = "datalog-client.dat";
