@@ -70,3 +70,25 @@ To build DaRPC and its example programs, execute the following steps:
 		}
 	}
 ```
+3. Define the actual RPC service
+```
+	public class RdmaRpcService extends RdmaRpcProtocol {
+		public void processServerEvent(RpcServerEvent<RdmaRpcRequest, RdmaRpcResponse> event) throws IOException {
+			RdmaRpcProtocol.RdmaRpcRequest request = event.getRequest();
+			RdmaRpcProtocol.RdmaRpcResponse response = event.getResponse();
+			response.setName(request.getParam() + 1);
+			event.triggerResponse();
+		}
+	}
+```
+4. Call the RPC service from a client
+```
+	RpcEndpointGroup rpcGroup = RpcPassiveEndpointGroup.createDefault();
+	RpcEndpoint rpcEndpoint = rpcGroup.createEndpoint();
+	rpcEndpoint.connect(address);
+	RpcStream<RdmaRpcRequest, RdmaRpcResponse> stream = rpcEndpoint.createStream();
+	RdmaRpcRequest request = new RdmaRpcRequest();
+	RdmaRpcResponse response = new RdmaRpcResponse();
+	RpcFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.request(request, response);
+	...
+	response = future.get();
