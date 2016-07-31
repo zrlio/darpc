@@ -23,3 +23,35 @@ To build DaRPC and its example programs, execute the following steps:
 3. Make sure the RDMA network interface is configured and up on the test machines (run ibv\_devices to see the list of RDMA NICs). If your machine does not have RDMA hardware, you can also use SoftiWARP from [Github](https://github.com/zrlio/softiwarp). 
 4. Run the server\: java com.ibm.darpc.examples.server.DaRPCServer -a \<server IP\>
 5. Run the client\: java com.ibm.darpc.examples.client.DaRPCClient -a \<server IP\> 
+
+## Basic Steps Required to Implement your own RPC Service
+
+1. Define the RPC request and response messages
+
+	public static class RdmaRpcRequest implements RdmaRpcMessage {
+		public static int SERIALIZED_SIZE = 16;
+		
+		private int cmd;
+		private int param;
+		private long time;
+		
+		public RdmaRpcRequest(){
+		}
+
+		@Override
+		public void update(ByteBuffer buffer) {
+			cmd = buffer.getInt();
+			param = buffer.getInt();
+			time = buffer.getLong();
+		}
+
+		@Override
+		public int write(ByteBuffer buffer) {
+			buffer.putInt(cmd);
+			buffer.putInt(param);
+			buffer.putLong(time);
+			
+			return SERIALIZED_SIZE;
+		}
+	}
+	
