@@ -58,15 +58,15 @@ To build DaRPC and its example programs, execute the following steps:
 ```
 2. Define the protocol
 ```
-public class RdmaRpcProtocol extends RdmaRpcService<RdmaRpcRequest, RdmaRpcResponse> {
-	@Override
-	public RdmaRpcRequest createRequest() {
-		return new RdmaRpcRequest();
-	}
+	public class RdmaRpcProtocol extends RdmaRpcService<RdmaRpcRequest, RdmaRpcResponse> {
+		@Override
+		public RdmaRpcRequest createRequest() {
+			return new RdmaRpcRequest();
+		}
 
-	@Override
-	public RdmaRpcResponse createResponse() {
-		return new RdmaRpcResponse();
+		@Override
+		public RdmaRpcResponse createResponse() {
+			return new RdmaRpcResponse();
+		}
 	}
-}
 ```
