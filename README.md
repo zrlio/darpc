@@ -104,3 +104,12 @@ Call the RPC service from a client
 	...
 	response = future.get();
 	System.out.println("RPC completed, return value " + response.getReturnValue()); //should print 78
+```
+## Choosing the RpcEndpointGroup 
+
+RpcEndpointGroups are containers and factories for RPC connections (RpcEndpoint). There are two types of RpcEndpointGroups available and which type of group works best depends on your application. The RpcActiveEndpointGroup actively processes network events caused by RDMA messages being transmitted or received. The RpcPassiveEndpointGroup processes network events directly in the process context of the application. As such, the passive mode has typically lower latency but may suffer from contention to per-connection hardware resources in case of large numbers of threads. The active mode, on the other hand, is more robust under large numbers of threads, but has higher latencies. Applications can control the cores and their NUMA affinities that are used for event processing. For server-side RPC processing the active mode is used. The DaRPC paper discusses the trade-offs between active and passive RPC processing in more detail. 
+
+
+## Reference
+
+"DaRPC: Data Center RPC", Patrick Stuedi, Animesh Trivedi, Bernard Metzler, and Jonas Pfefferle, Proceedings of the ACM Symposium on Cloud Computing (SOCC'14)
