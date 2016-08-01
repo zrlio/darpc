@@ -81,6 +81,16 @@ Define the actual RPC service
 		}
 	}
 ```
+Start the server
+```
+	RdmaRpcService rpcService = new RdmaRpcService();
+	RpcActiveEndpointGroup<RdmaRpcRequest, RdmaRpcResponse> rpcGroup = RpcActiveEndpointGroup.createDefault(rpcService);
+	RdmaServerEndpoint<RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse>> rpcEndpoint = rpcGroup.createServerEndpoint();
+	rpcEndpoint.bind(addr);
+	while(true){
+		serverEp.accept();
+	}
+```	
 Call the RPC service from a client
 ```
 	RpcEndpointGroup rpcGroup = RpcPassiveEndpointGroup.createDefault();
