@@ -26,7 +26,7 @@ To build DaRPC and its example programs, execute the following steps:
 
 ## Basic Steps Required to Implement your own RPC Service
 
-1. Define the RPC request and response messages
+Define the RPC request and response messages
 
 ```
 	public class RdmaRpcRequest implements RdmaRpcMessage {
@@ -56,7 +56,7 @@ To build DaRPC and its example programs, execute the following steps:
 		}
 	}
 ```
-2. Define the protocol
+Define the protocol
 ```
 	public class RdmaRpcProtocol extends RdmaRpcService<RdmaRpcRequest, RdmaRpcResponse> {
 		@Override
@@ -70,7 +70,7 @@ To build DaRPC and its example programs, execute the following steps:
 		}
 	}
 ```
-3. Define the actual RPC service
+Define the actual RPC service
 ```
 	public class RdmaRpcService extends RdmaRpcProtocol {
 		public void processServerEvent(RpcServerEvent<RdmaRpcRequest, RdmaRpcResponse> event) throws IOException {
@@ -81,7 +81,7 @@ To build DaRPC and its example programs, execute the following steps:
 		}
 	}
 ```
-4. Call the RPC service from a client
+Call the RPC service from a client
 ```
 	RpcEndpointGroup rpcGroup = RpcPassiveEndpointGroup.createDefault();
 	RpcEndpoint rpcEndpoint = rpcGroup.createEndpoint();
