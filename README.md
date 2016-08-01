@@ -5,7 +5,7 @@ The unique features of DaRPC include:
 
 * Ultra-low RPC latencies very close to the network roundtrip latencies.
 * Efficient asynchronous non-blocking RPC interfaces
-* Fine grained control over network trade-offs (interrups vs polling)
+* Fine grained control over network trade-offs (interrupts vs polling)
 
 ## Building DaRPC
 
