@@ -4,7 +4,7 @@ DaRPC is a Java library that provides ultra-low latency RPC for RDMA capable net
 The unique features of DaRPC include:
 
 * Ultra-low RPC latencies very close to the raw hardware roundtrip latencies. 
-  (Depending on the networking hardware and the CPU intensity of the RPC call, RPC latencies of 3-4 microseconds are possible)
+  (Depending on the networking hardware and the CPU intensity of the RPC call, RPC latencies of 5-6 microseconds are possible)
 * Efficient asynchronous non-blocking RPC interfaces
 * Fine grained control over network trade-offs (interrupts vs polling)
 
