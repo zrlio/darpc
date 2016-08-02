@@ -9,7 +9,7 @@ The unique features of DaRPC include:
 
 ## Building DaRPC
 
-DaRPC is built using [Apache Maven](http://maven.apache.org/).
+DaRPC is built using [Apache Maven](http://maven.apache.org/) and requires Java version 8 or higher.
 To build DaRPC and its example programs, execute the following steps:
 
 1. Obtain a copy of DaRPC from [Github](https://github.com/zrlio/darpc)
