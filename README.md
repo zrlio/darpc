@@ -25,6 +25,16 @@ To build DaRPC and its example programs, execute the following steps:
 4. Run the server\: java com.ibm.darpc.examples.server.DaRPCServer -a \<server IP\>
 5. Run the client\: java com.ibm.darpc.examples.client.DaRPCClient -a \<server IP\> 
 
+## Maven Integration
+
+To use DaRPC in your maven application use the following snippet in your pom.xml file:
+
+    <dependency>
+      <groupId>com.ibm.darpc</groupId>
+      <artifactId>darpc</artifactId>
+      <version>1.0</version>
+    </dependency>
+
 ## Basic Steps Required to Implement your own RPC Service
 
 Define the RPC request and response messages
