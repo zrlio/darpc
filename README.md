@@ -27,7 +27,7 @@ To build DaRPC and its example programs, execute the following steps:
 
 ## Maven Integration
 
-To use DaRPC in your maven application use the following snippet in your pom.xml file:
+To use DaRPC in your maven application use the following snippet in your pom.xml file (you need to build DaRPC before to update your local maven repo):
 
     <dependency>
       <groupId>com.ibm.darpc</groupId>
