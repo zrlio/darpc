@@ -120,9 +120,14 @@ Call the RPC service from a client
 
 RpcEndpointGroups are containers and factories for RPC connections (RpcEndpoint). There are two types of groups available and which type works best depends on the application. The RpcActiveEndpointGroup actively processes network events caused by RDMA messages being transmitted or received. The RpcPassiveEndpointGroup processes network events directly in the process context of the application. As such, the passive mode has typically lower latency but may suffer from contention to per-connection hardware resources in case of large numbers of threads. The active mode, on the other hand, is more robust under large numbers of threads, but has higher latencies. Applications can control the cores and the NUMA affinities that are used for event processing. For server-side RPC processing the active mode is always used. The DaRPC paper discusses the trade-offs between active and passive RPC processing in more detail. 
 
+## Contributions
+
+PRs are always welcome. Please fork, and make necessary modifications you propose, and let us know.
 
 ## Contact
 
-If you have questions feel free to post at:
+If you have questions or suggestions, feel free to post at:
 
-https://groups.google.com/forum/#!forum/zrlio-users
+https://groups.google.com/forum/#!forum/zrlio-users (https://groups.google.com/forum/#%21forum/zrlio-users) 
+
+or email: zrlio-users@googlegroups.com 
