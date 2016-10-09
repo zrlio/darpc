@@ -78,14 +78,11 @@ public class RpcPassiveClientEndpoint<R extends RdmaRpcMessage, T extends RdmaRp
 	
 	public void pollOnce() throws IOException {
 		if (!lock.tryLock()){
-//			LOG.info("cannot get lock on ep " + this.getEndpointId());
 			return;
 		}
 		
-//		LOG.info("got lock on ep " + this.getEndpointId());
 		try {
 			_pollOnce();
-//			while (_poll() <= 0);
 		} finally {
 			lock.unlock();
 		}
@@ -122,28 +119,6 @@ public class RpcPassiveClientEndpoint<R extends RdmaRpcMessage, T extends RdmaRp
 		} 
 		return res;
 	}
-	
-//	private int _pollUntil(AtomicInteger future, long timeout) throws IOException {
-//		long count = 0;
-//		long startTime = System.currentTimeMillis();
-//		while(future.get() == 0){
-//			if ((count % 1000000000) == 0){
-//				count = 0;
-//				if (System.currentTimeMillis() - startTime > timeout){
-//					break;
-//				}
-//			}			
-//			
-//			int res = poll.execute().getPolls();
-//			if (res > 0){
-//				for (int i = 0; i < res; i++){
-//					IbvWC wc = wcList[i];
-//					dispatchCqEvent(wc);
-//				}
-//			}
-//		}
-//		return 1;
-//	}
 	
 	private int _pollUntil(AtomicInteger future, long timeout) throws IOException {
 		long count = 0;
