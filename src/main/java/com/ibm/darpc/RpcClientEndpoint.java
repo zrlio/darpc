@@ -46,13 +46,15 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 	
 	private ByteBuffer[] recvBufs;
 	private ByteBuffer[] sendBufs;
+	private IbvMr[] recvMRs;
+	private IbvMr[] sendMRs;
 	private SVCPostRecv[] recvCall;
 	private SVCPostSend[] sendCall;
 	
-	private ArrayBlockingQueue<RpcServerEvent<R,T>> eventPool;
-	private ArrayBlockingQueue<SVCPostSend> freePostSend;
 	private ConcurrentHashMap<Integer, SVCPostSend> pendingPostSend;
 	private ConcurrentHashMap<Integer, RpcFuture<R,T>> pendingFutures;
+	private ArrayBlockingQueue<RpcServerEvent<R,T>> eventPool;
+	private ArrayBlockingQueue<SVCPostSend> freePostSend;
 	
 	private AtomicLong ticketCount;
 	private Object overFlowLock;
@@ -81,6 +83,9 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 		this.sendBufs = new ByteBuffer[pipelineLength];
 		this.recvCall = new SVCPostRecv[pipelineLength];
 		this.sendCall = new SVCPostSend[pipelineLength];
+		this.recvMRs = new IbvMr[pipelineLength];
+		this.sendMRs = new IbvMr[pipelineLength];
+		
 		this.eventPool = new ArrayBlockingQueue<RpcServerEvent<R,T>>(pipelineLength+1);
 		this.overFlowLock = new Object();
 		this.maxInt = (long) Integer.MAX_VALUE;
@@ -88,7 +93,6 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 		this.ticketCount = new AtomicLong(0);
 		this.messagesSent = new AtomicLong(0);
 		this.messagesReceived = new AtomicLong(0);
-		
 		logger.info("RPC client endpoint, with buffer size = " + bufferSize + ", pipeline " + pipelineLength);
 	}
 	
@@ -113,7 +117,12 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 	}
 	
 	@Override
-	public void close() throws IOException {
+	public synchronized void close() throws IOException, InterruptedException {
+		for(int i = 0; i < pipelineLength; i++){
+			deregisterMemory(recvMRs[i]);
+			deregisterMemory(sendMRs[i]);
+		}
+		super.close();
 	}	
 	
 	public int clusterId() {
@@ -154,35 +163,6 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 		} else {
 			throw new IOException("Unkown opcode " + wc.getOpcode());
 		}		
-		
-//		if (wc.getStatus() == 5){
-//			// flush error, emptying qp
-//			return;
-//		} else {
-//			
-//		}
-//		
-//		if (wc.getStatus() == 0) {
-//			// no error
-//			if (wc.getOpcode() == 128){
-//				if (isServerSide()) {
-//					dispatchServerEvent(wc);
-//				} else {
-//					dispatchClientEvent(wc);
-//				}
-//				messagesReceived.incrementAndGet();
-//			} else if (wc.getOpcode() == 0) {
-//				dispatchSendEvent(wc);
-//			} else {
-//				throw new IOException("Unkown opcode " + wc.getOpcode());
-//			}
-//		} else if (wc.getStatus() == 5) {
-//			// flush error, emptying qp
-//			return;
-//		} else {
-//			logger.info("error in wc, status " + wc.getStatus());
-//			throw new IOException("error in wc, status " + wc.getStatus());
-//		}		
 	}
 	
 	void sendResponse(RpcServerEvent<R,T> event) throws IOException {
@@ -199,15 +179,9 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 		return ticket;
 	}
 	
-//	boolean isPending(RpcFuture<R,T> future){
-//		return pendingFutures.containsKey(future.getTicket());
-//	}
-	
 	private boolean sendMessage(RdmaRpcMessage message, int ticket) throws IOException {
 		SVCPostSend postSend = getSendSlot(freePostSend);
 		int index = (int) postSend.getWrMod(0).getWr_id();
-		// logger.info("RPC message sent, ticket " + ticket + ", index " +
-		// index);
 		sendBufs[index].putInt(0, ticket);
 		sendBufs[index].position(4);
 		int written = 4 + message.write(sendBufs[index]);
@@ -216,11 +190,7 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 		if (written <= maxinline) {
 			// inlining
 			postSend.getWrMod(0).setSend_flags(postSend.getWrMod(0).getSend_flags() | IbvSendWR.IBV_SEND_INLINE);
-//			 logger.info("inlining, flags " + postSend.getWrMod(0).getSend_flags() + ", cmd " + sendBufs[index].getShort(4));
-		} else {
-			// regular
-//			 logger.info("not inlining, flags " + postSend.getWrMod(0).getSend_flags() + ", cmd " + sendBufs[index].getShort(4));
-		}
+		} 
 
 		pendingPostSend.put(ticket, postSend);
 
@@ -250,7 +220,6 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 				throw new IOException("no free events, must be overrunning server.. , messages sent " + messagesSent.get() + ", messagesReceived " + messagesReceived.get());
 			}
 			int ticket = recvBuffer.getInt(0);
-//			logger.info("receiving server bytes " + wc.getByte_len() + ", wrid " + wc.getWr_id() + ", opcode " + wc.getOpcode() + ", ticket " + ticket + ", ep-id " + this.getEndpointId());
 			recvBuffer.position(4);
 			event.getRequest().update(recvBuffer);
 			
@@ -273,7 +242,6 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 			int index = (int) wc.getWr_id();
 			ByteBuffer recvBuffer = recvBufs[index];
 			int ticket = recvBuffer.getInt(0);
-//			logger.info("receiving client bytes " + wc.getByte_len() + ", wrid " + wc.getWr_id() + ", opcode " + wc.getOpcode() + ", ticket " + ticket  + ", ep-id " + this.getEndpointId());
 			recvBuffer.position(4);
 			RpcFuture<R, T> future = pendingFutures.remove(ticket);
 			future.getResponse().update(recvBuffer);
@@ -319,6 +287,7 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 		LinkedList<IbvSge> sgeList = new LinkedList<IbvSge>();
 		
 		IbvMr mr = registerMemory(sendBuf).execute().free().getMr();
+		sendMRs[wrid] = mr;
 		IbvSge sge = new IbvSge();
 		sge.setAddr(mr.getAddr());
 		sge.setLength(mr.getLength());
@@ -341,6 +310,7 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 		LinkedList<IbvSge> sgeList = new LinkedList<IbvSge>();
 		
 		IbvMr mr = registerMemory(recvBuf).execute().free().getMr();
+		recvMRs[wrid] = mr;
 		IbvSge sge = new IbvSge();
 		sge.setAddr(mr.getAddr());
 		sge.setLength(mr.getLength());
@@ -371,6 +341,5 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 		
 		long value = _value % maxInt;
 		return (int) value;
-	}		
-
+	}
 }

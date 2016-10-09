@@ -24,20 +24,15 @@ package com.ibm.darpc;
 import java.io.IOException;
 
 public abstract class RdmaRpcService <R extends RdmaRpcMessage, T extends RdmaRpcMessage> {
-
 	public abstract R createRequest();
-	
 	public abstract T createResponse();	
 	
 	public void processServerEvent(RpcServerEvent<R,T> event) throws IOException {
-		
 	}
 	
 	public void open(RpcClientEndpoint<R,T> rpcClientEndpoint){
 	}
 	
-	
 	public void close(RpcClientEndpoint<R,T> rpcClientEndpoint) {
 	}
-
 }

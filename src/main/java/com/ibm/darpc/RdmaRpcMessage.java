@@ -25,11 +25,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public interface RdmaRpcMessage {
-
 	public int write(ByteBuffer buffer) throws IOException;
-	
 	public void update(ByteBuffer buffer) throws IOException;
-	
 	public int size();	
 
 }
