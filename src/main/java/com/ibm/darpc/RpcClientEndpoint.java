@@ -110,9 +110,7 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 		
 		for(int i = 0; i < pipelineLength; i++){
 			freePostSend.add(sendCall[i]);
-			if (!recvCall[i].execute().success()){
-				throw new IOException("post recv failed, index " + i);
-			}
+			recvCall[i].execute();
 		}
 	}
 	
@@ -193,12 +191,7 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 		} 
 
 		pendingPostSend.put(ticket, postSend);
-
-		if (!postSend.execute().success()) {
-			logger.info("post send failed");
-			throw new IOException("posting request failed");
-		}
-		
+		postSend.execute();
 		messagesSent.incrementAndGet();
 
 		return true;
@@ -222,11 +215,7 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 			int ticket = recvBuffer.getInt(0);
 			recvBuffer.position(4);
 			event.getRequest().update(recvBuffer);
-			
-			if (!postRecv.execute().success()) {
-				logger.info("post recv failed");
-				throw new IOException("posting recv failed");
-			}
+			postRecv.execute();
 			event.stamp(ticket);
 			rpcGroup.processServerEvent(event);			
 		}
@@ -246,11 +235,7 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 			RpcFuture<R, T> future = pendingFutures.remove(ticket);
 			future.getResponse().update(recvBuffer);
 			SVCPostRecv postRecv = recvCall[index];
-			
-			if (!postRecv.execute().success()) {
-				logger.info("post recv failed");
-				throw new IOException("posting recv failed");
-			}
+			postRecv.execute();
 			future.signal(wc.getStatus());
 			freeSend(ticket);
 		}

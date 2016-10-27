@@ -33,7 +33,7 @@ import com.ibm.disni.endpoints.*;
 
 public abstract class RpcEndpointGroup<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RdmaEndpointGroup<RpcClientEndpoint<R,T>> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
-	private static int DARPC_VERSION = 45;
+	private static int DARPC_VERSION = 46;
 	
 	protected int maxInline;
 	protected ConcurrentHashMap<Integer, RpcInstance<R,T>> deviceInstance;
