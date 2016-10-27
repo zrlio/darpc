@@ -151,22 +151,80 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 	public void dispatchCqEvent(IbvWC wc) throws IOException {
 		if (wc.getOpcode() == 128){
 			if (isServerSide()) {
-				dispatchServerEvent(wc);
+				dispatchServerReceive(wc);
 			} else {
-				dispatchClientEvent(wc);
+				dispatchClientReceive(wc);
 			}
 			messagesReceived.incrementAndGet();
 		} else if (wc.getOpcode() == 0) {
-			dispatchSendEvent(wc);
+			if (isServerSide()) {
+				dispatchServerSend(wc);
+			} 			
 		} else {
 			throw new IOException("Unkown opcode " + wc.getOpcode());
 		}		
 	}
 	
+	private void dispatchClientReceive(IbvWC wc) throws IOException {
+			if (wc.getStatus() == 5){
+	//			logger.info("flush wc");
+			} else if (wc.getStatus() != 0){
+				logger.info("faulty request, status " + wc.getStatus());
+			} else {
+				// assuming wc.getOpcode() == 128, endpoint.isServerSide() = false
+				int index = (int) wc.getWr_id();
+				ByteBuffer recvBuffer = recvBufs[index];
+				int ticket = recvBuffer.getInt(0);
+				recvBuffer.position(4);
+				RpcFuture<R, T> future = pendingFutures.remove(ticket);
+				future.getResponse().update(recvBuffer);
+				SVCPostRecv postRecv = recvCall[index];
+				postRecv.execute();
+				future.signal(wc.getStatus());
+				freeSend(ticket);
+			}
+		}
+	private void dispatchServerReceive(IbvWC wc) throws IOException {
+			if (wc.getStatus() == 5){
+	//			logger.info("flush wc");
+			} else if (wc.getStatus() != 0){
+				logger.info("faulty request, status " + wc.getStatus());
+			} else {
+				//assuming wc.getOpcode() == 128, endpoint.isServerSide() = true
+				int index = (int) wc.getWr_id();
+				ByteBuffer recvBuffer = recvBufs[index];
+				SVCPostRecv postRecv = recvCall[index];
+				RpcServerEvent<R,T> event = eventPool.poll();
+				if (event == null){
+					logger.info("no free events, must be overrunning server.. , messages sent " + messagesSent.get() + ", messagesReceived " + messagesReceived.get());
+					throw new IOException("no free events, must be overrunning server.. , messages sent " + messagesSent.get() + ", messagesReceived " + messagesReceived.get());
+				}
+				int ticket = recvBuffer.getInt(0);
+				recvBuffer.position(4);
+				event.getRequest().update(recvBuffer);
+				postRecv.execute();
+				event.stamp(ticket);
+				rpcGroup.processServerEvent(event);			
+			}
+		}
+	private void dispatchServerSend(IbvWC wc) throws IOException {
+		if (wc.getStatus() == 5){
+//				logger.info("flush wc");
+		} else if (wc.getStatus() != 0){
+			logger.info("faulty request, status " + wc.getStatus());
+		} else {
+			//assuming wc.getOpcode() == 0
+			int index = (int) wc.getWr_id();
+			ByteBuffer sendBuffer = sendBufs[index];
+			int ticket = sendBuffer.getInt(0);				
+			freeSend(ticket);
+		}
+	}
+	
 	void sendResponse(RpcServerEvent<R,T> event) throws IOException {
 		sendMessage(event.getResponse(), event.getTicket());
 		eventPool.add(event);
-		this.freeSend(event.getTicket());
+//		this.freeSend(event.getTicket());
 	}
 	
 	int sendRequest(RpcFuture<R,T> future) throws IOException {
@@ -195,68 +253,6 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 		messagesSent.incrementAndGet();
 
 		return true;
-	}
-	
-	private void dispatchServerEvent(IbvWC wc) throws IOException {
-		if (wc.getStatus() == 5){
-//			logger.info("flush wc");
-		} else if (wc.getStatus() != 0){
-			logger.info("faulty request, status " + wc.getStatus());
-		} else {
-			//assuming wc.getOpcode() == 128, endpoint.isServerSide() = true
-			int index = (int) wc.getWr_id();
-			ByteBuffer recvBuffer = recvBufs[index];
-			SVCPostRecv postRecv = recvCall[index];
-			RpcServerEvent<R,T> event = eventPool.poll();
-			if (event == null){
-				logger.info("no free events, must be overrunning server.. , messages sent " + messagesSent.get() + ", messagesReceived " + messagesReceived.get());
-				throw new IOException("no free events, must be overrunning server.. , messages sent " + messagesSent.get() + ", messagesReceived " + messagesReceived.get());
-			}
-			int ticket = recvBuffer.getInt(0);
-			recvBuffer.position(4);
-			event.getRequest().update(recvBuffer);
-			postRecv.execute();
-			event.stamp(ticket);
-			rpcGroup.processServerEvent(event);			
-		}
-	}	
-
-	private void dispatchClientEvent(IbvWC wc) throws IOException {
-		if (wc.getStatus() == 5){
-//			logger.info("flush wc");
-		} else if (wc.getStatus() != 0){
-			logger.info("faulty request, status " + wc.getStatus());
-		} else {
-			// assuming wc.getOpcode() == 128, endpoint.isServerSide() = false
-			int index = (int) wc.getWr_id();
-			ByteBuffer recvBuffer = recvBufs[index];
-			int ticket = recvBuffer.getInt(0);
-			recvBuffer.position(4);
-			RpcFuture<R, T> future = pendingFutures.remove(ticket);
-			future.getResponse().update(recvBuffer);
-			SVCPostRecv postRecv = recvCall[index];
-			postRecv.execute();
-			future.signal(wc.getStatus());
-			freeSend(ticket);
-		}
-	}
-	
-	private void dispatchSendEvent(IbvWC wc) throws IOException {
-		if (isServerSide()){
-			if (wc.getStatus() == 5){
-//				logger.info("flush wc");
-			} else if (wc.getStatus() != 0){
-				logger.info("faulty request, status " + wc.getStatus());
-			} else {
-				//assuming wc.getOpcode() == 0
-//				int index = (int) wc.getWr_id();
-//				ByteBuffer sendBuffer = sendBufs[index];
-//				int ticket = sendBuffer.getInt(0);				
-//				freeSend(ticket);
-			}
-		} else {
-//			logger.info("sending client bytes " + wc.getByte_len() + ", wrid " + wc.getWr_id() + ", opcode " + wc.getOpcode()  + ", ep-id " + this.getEndpointId());
-		}
 	}
 	
 	private void freeSend(int ticket) throws IOException {
