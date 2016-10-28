@@ -23,7 +23,7 @@ package com.ibm.darpc;
 
 import java.io.IOException;
 
-public class RpcServerEvent<R extends RdmaRpcMessage, T extends RdmaRpcMessage> {
+public class RpcServerEvent<R extends RdmaRpcMessage, T extends RdmaRpcMessage> implements RpcEvent<R,T> {
 	private RpcClientEndpoint<R,T> endpoint;
 	private R request;
 	private T response;
@@ -36,11 +36,11 @@ public class RpcServerEvent<R extends RdmaRpcMessage, T extends RdmaRpcMessage> 
 		this.ticket = 0;
 	}
 	
-	public R getRequest() {
+	public R getReceiveMessage() {
 		return request;
 	}
 
-	public T getResponse() {
+	public T getSendMessage() {
 		return response;
 	}
 	
@@ -48,7 +48,7 @@ public class RpcServerEvent<R extends RdmaRpcMessage, T extends RdmaRpcMessage> 
 		endpoint.sendResponse(this);
 	}
 	
-	int getTicket(){
+	public int getTicket(){
 		return ticket;
 	}
 	

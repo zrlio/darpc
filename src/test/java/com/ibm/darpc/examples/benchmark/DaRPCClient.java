@@ -72,7 +72,7 @@ public class DaRPCClient {
 						while (!future.isDone()) {
 						}
 //						System.out.println("value: i " + i + ", response " + future.getResponse().getName() + ", ticket " + future.getTicket() + ", eid " + clientEp.getEndpointId());
-						freeResponses.add(future.getResponse());
+						freeResponses.add(future.getReceiveMessage());
 						stream.clear();
 						break;
 					case STREAM_POLL:
@@ -81,14 +81,14 @@ public class DaRPCClient {
 							future = stream.poll();
 						}
 //						System.out.println("i " + i + ", response " + future.getResponse().getName() + ", ticket " + future.getTicket() + ", eid " + clientEp.getEndpointId());
-						freeResponses.add(future.getResponse());
+						freeResponses.add(future.getReceiveMessage());
 						stream.clear();
 						break;		
 					case FUTURE_TAKE:
 						if (future.get(clienttimeout, TimeUnit.MILLISECONDS) != null){
-							RdmaRpcResponse val = future.getResponse();
+							RdmaRpcResponse val = future.getReceiveMessage();
 //							System.out.println("join: i " + i + ", response " + val.getName() + ", ticket " + future.getTicket() + ", eid " + clientEp.getEndpointId());
-							freeResponses.add(future.getResponse());
+							freeResponses.add(future.getReceiveMessage());
 						} else {
 							System.out.println("invalid value");
 						}
@@ -98,7 +98,7 @@ public class DaRPCClient {
 						future = stream.take(clienttimeout);
 						if (future != null){
 //							System.out.println("i " + i + ", response " + future.getResponse().getName() + ", ticket " + future.getTicket() + ", eid " + clientEp.getEndpointId());
-							freeResponses.add(future.getResponse());
+							freeResponses.add(future.getReceiveMessage());
 						} else {
 //							System.out.println("invalid value");
 						}
@@ -108,8 +108,8 @@ public class DaRPCClient {
 						if ((i > 0) && ((i % rpcpipeline) == 0)) {
 							for (int j = 1; j <= rpcpipeline; j++) {
 								future = stream.take();
-								System.out.println("i " + i + ", k " + k + ", response " + future.getResponse().toString());
-								freeResponses.add(future.getResponse());
+								System.out.println("i " + i + ", k " + k + ", response " + future.getReceiveMessage().toString());
+								freeResponses.add(future.getReceiveMessage());
 								k++;
 							}
 							stream.clear();
@@ -122,8 +122,8 @@ public class DaRPCClient {
 								while (future == null){
 									future = stream.poll();
 								}
-								System.out.println("i " + i + ", k " + k + ", response " + future.getResponse().toString());
-								freeResponses.add(future.getResponse());
+								System.out.println("i " + i + ", k " + k + ", response " + future.getReceiveMessage().toString());
+								freeResponses.add(future.getReceiveMessage());
 								k++;
 							}
 							stream.clear();

@@ -35,8 +35,8 @@ public class RdmaRpcService extends RdmaRpcProtocol {
 	}
 	
 	public void processServerEvent(RpcServerEvent<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> event) throws IOException {
-		RdmaRpcProtocol.RdmaRpcRequest request = event.getRequest();
-		RdmaRpcProtocol.RdmaRpcResponse response = event.getResponse();
+		RdmaRpcProtocol.RdmaRpcRequest request = event.getReceiveMessage();
+		RdmaRpcProtocol.RdmaRpcResponse response = event.getSendMessage();
 		response.setName(request.getParam() + 1);
 		if (servicetimeout > 0){
 			try {

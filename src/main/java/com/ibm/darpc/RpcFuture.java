@@ -23,7 +23,7 @@ package com.ibm.darpc;
 
 import java.util.concurrent.Future;
 
-public abstract class RpcFuture<R extends RdmaRpcMessage, T extends RdmaRpcMessage> implements Future<T> {
+public abstract class RpcFuture<R extends RdmaRpcMessage, T extends RdmaRpcMessage> implements Future<T>, RpcEvent<T, R> {
 	protected static int RPC_PENDING = 0;
 	protected static int RPC_DONE = 1;
 	protected static int RPC_ERROR = 2;	
@@ -44,11 +44,11 @@ public abstract class RpcFuture<R extends RdmaRpcMessage, T extends RdmaRpcMessa
 		return this.ticket;
 	}
 	
-	public R getRequest(){
+	public R getSendMessage(){
 		return request;
 	}
 	
-	public T getResponse(){
+	public T getReceiveMessage(){
 		return response;
 	}
 	

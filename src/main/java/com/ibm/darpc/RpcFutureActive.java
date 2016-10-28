@@ -49,7 +49,7 @@ public class RpcFutureActive<R extends RdmaRpcMessage, T extends RdmaRpcMessage>
 		}
 		
 		if (status.get() == RPC_DONE){
-			return this.getResponse();
+			return this.getReceiveMessage();
 		} else if (status.get() == RPC_PENDING){
 			throw new InterruptedException("RPC timeout");
 		} else {
@@ -69,7 +69,7 @@ public class RpcFutureActive<R extends RdmaRpcMessage, T extends RdmaRpcMessage>
 		}
 		
 		if (status.get() == RPC_DONE){
-			return this.getResponse();
+			return this.getReceiveMessage();
 		} else if (status.get() == RPC_PENDING){
 			throw new InterruptedException("RPC timeout");
 		} else {

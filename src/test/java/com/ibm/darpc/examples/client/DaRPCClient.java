@@ -97,10 +97,10 @@ public class DaRPCClient {
 					case FUTURE_POLL:
 						while (!future.isDone()) {
 						}
-						if (future.getResponse().getName() != future.getRequest().getParam() + 1){
+						if (future.getReceiveMessage().getName() != future.getSendMessage().getParam() + 1){
 							System.out.println("############## wrong RPC return value!!");
 						}
-						freeResponses.add(future.getResponse());
+						freeResponses.add(future.getReceiveMessage());
 						stream.clear();
 						break;
 					case STREAM_POLL:
@@ -108,13 +108,13 @@ public class DaRPCClient {
 						while (future == null) {
 							future = stream.poll();
 						}
-						freeResponses.add(future.getResponse());
+						freeResponses.add(future.getReceiveMessage());
 						stream.clear();
 						break;		
 					case FUTURE_TAKE:
 						if (future.get(clienttimeout, TimeUnit.MILLISECONDS) != null){
-							RdmaRpcResponse val = future.getResponse();
-							freeResponses.add(future.getResponse());
+							RdmaRpcResponse val = future.getReceiveMessage();
+							freeResponses.add(future.getReceiveMessage());
 						} else {
 							System.out.println("invalid value");
 						}
@@ -123,7 +123,7 @@ public class DaRPCClient {
 					case STREAM_TAKE:
 						future = stream.take(clienttimeout);
 						if (future != null){
-							freeResponses.add(future.getResponse());
+							freeResponses.add(future.getReceiveMessage());
 						} 
 						stream.clear();
 						break;
@@ -131,8 +131,8 @@ public class DaRPCClient {
 						if ((i > 0) && ((i % rpcpipeline) == 0)) {
 							for (int j = 1; j <= rpcpipeline; j++) {
 								future = stream.take();
-								System.out.println("i " + i + ", k " + k + ", response " + future.getResponse().toString());
-								freeResponses.add(future.getResponse());
+								System.out.println("i " + i + ", k " + k + ", response " + future.getReceiveMessage().toString());
+								freeResponses.add(future.getReceiveMessage());
 								k++;
 							}
 							stream.clear();
@@ -145,8 +145,8 @@ public class DaRPCClient {
 								while (future == null){
 									future = stream.poll();
 								}
-								System.out.println("i " + i + ", k " + k + ", response " + future.getResponse().toString());
-								freeResponses.add(future.getResponse());
+								System.out.println("i " + i + ", k " + k + ", response " + future.getReceiveMessage().toString());
+								freeResponses.add(future.getReceiveMessage());
 								k++;
 							}
 							stream.clear();

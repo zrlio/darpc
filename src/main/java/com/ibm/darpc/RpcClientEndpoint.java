@@ -56,7 +56,7 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 	private ConcurrentHashMap<Integer, RpcFuture<R,T>> pendingFutures;
 	private ArrayBlockingQueue<RpcServerEvent<R,T>> eventPool;
 	private ArrayBlockingQueue<SendOperation> freePostSend;
-	private ArrayBlockingQueue<RpcServerEvent<R,T>> pendingEvents;
+	private ArrayBlockingQueue<RpcEvent<? extends RdmaRpcMessage,? extends RdmaRpcMessage>> pendingEvents;
 	
 	private AtomicLong ticketCount;
 	private Object overFlowLock;
@@ -89,7 +89,7 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 		this.sendMRs = new IbvMr[pipelineLength];
 		
 		this.eventPool = new ArrayBlockingQueue<RpcServerEvent<R,T>>(pipelineLength+1);
-		this.pendingEvents = new ArrayBlockingQueue<RpcServerEvent<R,T>>(pipelineLength+1);
+		this.pendingEvents = new ArrayBlockingQueue<RpcEvent<? extends RdmaRpcMessage,? extends RdmaRpcMessage>>(pipelineLength+1);
 		this.overFlowLock = new Object();
 		this.maxInt = (long) Integer.MAX_VALUE;
 		
@@ -165,6 +165,12 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 			} else {
 				dispatchClientSend(wc);
 			}
+			if (!freePostSend.isEmpty()){
+				RpcEvent<? extends RdmaRpcMessage, ? extends RdmaRpcMessage> event = this.pendingEvents.poll();
+				if (event != null){
+					sendMessage(event);
+				}			
+			}
 		} else {
 			throw new IOException("Unkown opcode " + wc.getOpcode());
 		}		
@@ -182,7 +188,7 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 				int ticket = recvBuffer.getInt(0);
 				recvBuffer.position(4);
 				RpcFuture<R, T> future = pendingFutures.remove(ticket);
-				future.getResponse().update(recvBuffer);
+				future.getReceiveMessage().update(recvBuffer);
 				SVCPostRecv postRecv = recvCall[index];
 				postRecv.execute();
 				future.signal(wc.getStatus());
@@ -209,7 +215,7 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 				}
 				int ticket = recvBuffer.getInt(0);
 				recvBuffer.position(4);
-				event.getRequest().update(recvBuffer);
+				event.getReceiveMessage().update(recvBuffer);
 				postRecv.execute();
 				event.stamp(ticket);
 				rpcGroup.processServerEvent(event);			
@@ -255,23 +261,27 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 	}	
 	
 	void sendResponse(RpcServerEvent<R,T> event) throws IOException {
-		sendMessage(event.getResponse(), event.getTicket());
-		eventPool.add(event);
+		if (sendMessage(event)){
+			eventPool.add(event);
+		}
 	}
 	
 	int sendRequest(RpcFuture<R,T> future) throws IOException {
 		int ticket = getAndIncrement();
 		future.stamp(ticket);
 		pendingFutures.put(future.getTicket(), future);
-		sendMessage(future.getRequest(), future.getTicket());
+		sendMessage(future);
 		return ticket;
 	}
 	
-	private void sendMessage(RdmaRpcMessage message, int ticket) throws IOException {
+	private boolean sendMessage(RpcEvent<? extends RdmaRpcMessage,? extends RdmaRpcMessage> event) throws IOException {
 		SendOperation sendOperation = getSendSlot(freePostSend);
 		if (sendOperation == null){
-			
+			this.pendingEvents.add(event);
+			return false;
 		} else {
+			RdmaRpcMessage message = event.getSendMessage();
+			int ticket = event.getTicket();
 			SVCPostSend postSend = sendOperation.getPostSend();
 			int index = (int) postSend.getWrMod(0).getWr_id();
 			sendBufs[index].putInt(0, ticket);
@@ -286,7 +296,8 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 			
 			pendingPostSend.put(ticket, sendOperation);
 			postSend.execute();
-			messagesSent.incrementAndGet();			
+			messagesSent.incrementAndGet();	
+			return true;
 		}
 	}
 	

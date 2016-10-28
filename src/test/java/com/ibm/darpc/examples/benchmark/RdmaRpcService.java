@@ -21,8 +21,8 @@ public class RdmaRpcService extends RdmaRpcProtocol implements Runnable {
 	}
 	
 	public void processServerEvent(RpcServerEvent<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> event) throws IOException {
-		RdmaRpcProtocol.RdmaRpcRequest request = event.getRequest();
-		RdmaRpcProtocol.RdmaRpcResponse response = event.getResponse();
+		RdmaRpcProtocol.RdmaRpcRequest request = event.getReceiveMessage();
+		RdmaRpcProtocol.RdmaRpcResponse response = event.getSendMessage();
 //		System.out.println("got rpc request, size " + request.getData().length);
 		if (PARSE_FILENAME){
 			String filename = new String(request.getData());
