@@ -67,13 +67,13 @@ public class RpcPassiveClientEndpoint<R extends RdmaRpcMessage, T extends RdmaRp
 	}	
 	
 	@Override
-	public SVCPostSend getSendSlot(ArrayBlockingQueue<SVCPostSend> freePostSend) throws IOException {
-		SVCPostSend postSend = freePostSend.poll();
-		while(postSend == null){
+	public SendOperation getSendSlot(ArrayBlockingQueue<SendOperation> freePostSend) throws IOException {
+		SendOperation sendOperation = freePostSend.poll();
+		while(sendOperation == null){
 			pollOnce();
-			postSend = freePostSend.poll();
+			sendOperation = freePostSend.poll();
 		}
-		return postSend;
+		return sendOperation;
 	}	
 	
 	public void pollOnce() throws IOException {

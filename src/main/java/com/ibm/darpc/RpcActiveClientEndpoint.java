@@ -44,12 +44,8 @@ public class RpcActiveClientEndpoint<R extends RdmaRpcMessage, T extends RdmaRpc
 	}
 
 	@Override
-	public SVCPostSend getSendSlot(ArrayBlockingQueue<SVCPostSend> freePostSend) throws IOException {
-		try {
-			return freePostSend.take();
-		} catch(Exception e){
-			throw new IOException(e);
-		}
+	public SendOperation getSendSlot(ArrayBlockingQueue<SendOperation> freePostSend) throws IOException {
+		return freePostSend.poll();
 	}
 
 }
