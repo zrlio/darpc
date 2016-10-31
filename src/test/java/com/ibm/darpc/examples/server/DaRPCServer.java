@@ -27,7 +27,7 @@ import java.net.InetSocketAddress;
 import com.ibm.darpc.RpcActiveEndpointGroup;
 import com.ibm.darpc.RpcClientEndpoint;
 import com.ibm.darpc.examples.protocol.RdmaRpcProtocol;
-import com.ibm.disni.endpoints.*;
+import com.ibm.disni.rdma.*;
 import com.ibm.disni.util.*;
 
 public class DaRPCServer {

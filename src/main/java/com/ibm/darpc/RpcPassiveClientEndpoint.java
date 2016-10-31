@@ -29,7 +29,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ibm.disni.verbs.*;
+import com.ibm.disni.rdma.verbs.*;
 
 public class RpcPassiveClientEndpoint<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RpcClientEndpoint<R,T> {
 	private static Logger logger = LoggerFactory.getLogger("com.ibm.darpc");

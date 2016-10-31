@@ -26,7 +26,7 @@ import java.util.concurrent.LinkedBlockingDeque;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ibm.disni.endpoints.*;
+import com.ibm.disni.rdma.*;
 
 public class RpcStreamPassive <R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RpcStream<R,T> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");

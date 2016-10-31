@@ -33,10 +33,10 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ibm.disni.verbs.*;
-import com.ibm.disni.endpoints.*;
+import com.ibm.disni.rdma.verbs.*;
+import com.ibm.disni.rdma.*;
 
-public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RdmaClientEndpoint {
+public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RdmaEndpoint {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	
 	public abstract RpcStream<R,T> createStream() throws IOException;

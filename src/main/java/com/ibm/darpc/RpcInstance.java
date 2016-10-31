@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ibm.disni.verbs.*;
+import com.ibm.disni.rdma.verbs.*;
 
 public class RpcInstance<R extends RdmaRpcMessage, T extends RdmaRpcMessage> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");

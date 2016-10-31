@@ -309,7 +309,7 @@ public class DaRPCClient {
 		int k = 0;
 		for (int i = 0; i < rpcConnections.length; i++){
 			System.out.println("starting connection " + i);
-			RpcClientEndpoint<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> clientEp = group.createClientEndpoint();
+			RpcClientEndpoint<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> clientEp = group.createEndpoint();
 			clientEp.connect(address, 1000);
 			rpcConnections[i] = clientEp;
 			

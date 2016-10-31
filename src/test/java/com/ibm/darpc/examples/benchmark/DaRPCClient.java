@@ -274,7 +274,7 @@ public class DaRPCClient {
 		}
 		
 		System.out.println("starting connection ");
-		RpcClientEndpoint<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> clientEp = group.createClientEndpoint();
+		RpcClientEndpoint<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> clientEp = group.createEndpoint();
 		clientEp.connect(address, 1000);
 			
 		ClientThread benchmark = new ClientThread(clientEp, loop, address, mode, rpcpipeline, clienttimeout);
