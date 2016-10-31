@@ -31,7 +31,7 @@ import org.slf4j.LoggerFactory;
 
 import com.ibm.disni.rdma.verbs.*;
 
-public class RpcPassiveClientEndpoint<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RpcClientEndpoint<R,T> {
+public class RpcPassiveEndpoint<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RpcEndpoint<R,T> {
 	private static Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	
 	private int streamCount;
@@ -39,9 +39,8 @@ public class RpcPassiveClientEndpoint<R extends RdmaRpcMessage, T extends RdmaRp
 	private SVCPollCq poll;	
 	private ReentrantLock lock;
 	
-	public RpcPassiveClientEndpoint(RpcEndpointGroup<R, T> endpointGroup,
-			RdmaCmId idPriv) throws IOException {
-		super(endpointGroup, idPriv);
+	public RpcPassiveEndpoint(RpcEndpointGroup<R, T> endpointGroup, RdmaCmId idPriv, boolean serverSide) throws IOException {
+		super(endpointGroup, idPriv, serverSide);
 		this.streamCount = 1;
 		this.lock = new ReentrantLock();
 	}

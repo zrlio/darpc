@@ -9,7 +9,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import com.ibm.darpc.RpcActiveEndpointGroup;
-import com.ibm.darpc.RpcClientEndpoint;
+import com.ibm.darpc.RpcEndpoint;
 import com.ibm.darpc.RpcEndpointGroup;
 import com.ibm.darpc.RpcFuture;
 import com.ibm.darpc.RpcPassiveEndpointGroup;
@@ -30,7 +30,7 @@ public class DaRPCClient {
 		public static final int BATCH_STREAM_TAKE = 4;
 		public static final int BATCH_STREAM_POLL = 5;
 		
-		private RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp;
+		private RpcEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp;
 		private int loop;
 		private int queryMode;
 		private int rpcpipeline;
@@ -43,7 +43,7 @@ public class DaRPCClient {
 		protected double errorOps;		
 		private double ops;		
 		
-		public ClientThread(RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp, int loop, InetSocketAddress address, int mode, int rpcpipeline, int clienttimeout){
+		public ClientThread(RpcEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp, int loop, InetSocketAddress address, int mode, int rpcpipeline, int clienttimeout){
 			this.clientEp = clientEp;
 			this.loop = loop;
 			this.queryMode = mode;
@@ -274,7 +274,7 @@ public class DaRPCClient {
 		}
 		
 		System.out.println("starting connection ");
-		RpcClientEndpoint<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> clientEp = group.createEndpoint();
+		RpcEndpoint<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> clientEp = group.createEndpoint();
 		clientEp.connect(address, 1000);
 			
 		ClientThread benchmark = new ClientThread(clientEp, loop, address, mode, rpcpipeline, clienttimeout);

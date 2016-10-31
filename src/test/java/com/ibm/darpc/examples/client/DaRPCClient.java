@@ -30,7 +30,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
 import com.ibm.darpc.RpcActiveEndpointGroup;
-import com.ibm.darpc.RpcClientEndpoint;
+import com.ibm.darpc.RpcEndpoint;
 import com.ibm.darpc.RpcEndpointGroup;
 import com.ibm.darpc.RpcFuture;
 import com.ibm.darpc.RpcPassiveEndpointGroup;
@@ -52,7 +52,7 @@ public class DaRPCClient {
 		public static final int BATCH_STREAM_TAKE = 4;
 		public static final int BATCH_STREAM_POLL = 5;
 		
-		private RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp;
+		private RpcEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp;
 		private int loop;
 		private int queryMode;
 		private int rpcpipeline;
@@ -65,7 +65,7 @@ public class DaRPCClient {
 		protected double errorOps;		
 		private double ops;		
 		
-		public ClientThread(RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp, int loop, InetSocketAddress address, int mode, int rpcpipeline, int clienttimeout){
+		public ClientThread(RpcEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp, int loop, InetSocketAddress address, int mode, int rpcpipeline, int clienttimeout){
 			this.clientEp = clientEp;
 			this.loop = loop;
 			this.queryMode = mode;
@@ -290,7 +290,7 @@ public class DaRPCClient {
 		
 		int threadsperconnection = threadCount / connections;
 		
-		RpcClientEndpoint<?,?>[] rpcConnections = new RpcClientEndpoint[connections];
+		RpcEndpoint<?,?>[] rpcConnections = new RpcEndpoint[connections];
 		System.out.println("connections " + rpcConnections.length);
 		Thread[] workers = new Thread[threadCount];
 		System.out.println("total threads " + workers.length);
@@ -309,7 +309,7 @@ public class DaRPCClient {
 		int k = 0;
 		for (int i = 0; i < rpcConnections.length; i++){
 			System.out.println("starting connection " + i);
-			RpcClientEndpoint<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> clientEp = group.createEndpoint();
+			RpcEndpoint<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> clientEp = group.createEndpoint();
 			clientEp.connect(address, 1000);
 			rpcConnections[i] = clientEp;
 			

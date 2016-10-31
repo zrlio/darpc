@@ -26,12 +26,11 @@ import java.util.concurrent.ArrayBlockingQueue;
 
 import com.ibm.disni.rdma.verbs.*;
 
-public class RpcActiveClientEndpoint<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RpcClientEndpoint<R,T> {
+public class RpcActiveEndpoint<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RpcEndpoint<R,T> {
 	private int streamCount;
 	
-	public RpcActiveClientEndpoint(RpcEndpointGroup<R, T> endpointGroup,
-			RdmaCmId idPriv) throws IOException {
-		super(endpointGroup, idPriv);
+	public RpcActiveEndpoint(RpcEndpointGroup<R, T> endpointGroup, RdmaCmId idPriv, boolean serverSide) throws IOException {
+		super(endpointGroup, idPriv, serverSide);
 		this.streamCount = 1;
 	}
 

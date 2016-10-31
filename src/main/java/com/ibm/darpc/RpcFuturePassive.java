@@ -31,11 +31,11 @@ public class RpcFuturePassive<R extends RdmaRpcMessage, T extends RdmaRpcMessage
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	
 	private RpcStreamPassive<R, T> stream;
-	private RpcPassiveClientEndpoint<R,T> endpoint;
+	private RpcPassiveEndpoint<R,T> endpoint;
 	private boolean streamLogged;
 	private AtomicInteger status;
 	
-	public RpcFuturePassive(RpcStreamPassive<R,T> stream, RpcPassiveClientEndpoint<R,T> endpoint, R request, T response, boolean streamLogged){
+	public RpcFuturePassive(RpcStreamPassive<R,T> stream, RpcPassiveEndpoint<R,T> endpoint, R request, T response, boolean streamLogged){
 		super(request, response);
 		this.stream = stream;
 		this.endpoint = endpoint;

@@ -42,7 +42,7 @@ public class RpcResourceManager {
 		}
 	}
 	
-	public void allocateResources(RpcClientEndpoint<?,?> endpoint) throws Exception {
+	public void allocateResources(RpcEndpoint<?,?> endpoint) throws Exception {
 		logger.info("dispatching resource, clusterid " + endpoint.clusterId());
 		allocaters[endpoint.clusterId()].initResource(endpoint);
 	}
@@ -55,7 +55,7 @@ public class RpcResourceManager {
 
 	public static class RpcResourceAllocator implements Runnable {
 		private static Logger logger = LoggerFactory.getLogger("com.ibm.zac.darpc");
-		private LinkedBlockingQueue<RpcClientEndpoint<?,?>> requestQueue;
+		private LinkedBlockingQueue<RpcEndpoint<?,?>> requestQueue;
 		private long affinity;
 		private int index;
 		private boolean running;
@@ -65,7 +65,7 @@ public class RpcResourceManager {
 		public RpcResourceAllocator(long affinity, int index, int timeout) throws Exception {
 			this.affinity = affinity;
 			this.index = index;
-			this.requestQueue = new LinkedBlockingQueue<RpcClientEndpoint<?,?>>();
+			this.requestQueue = new LinkedBlockingQueue<RpcEndpoint<?,?>>();
 			this.running = false;
 			this.timeout = timeout;
 			if (timeout <= 0){
@@ -74,7 +74,7 @@ public class RpcResourceManager {
 			this.thread = new Thread(this);
 		}
 		
-		public void initResource(RpcClientEndpoint<?,?> endpoint) {
+		public void initResource(RpcEndpoint<?,?> endpoint) {
 			requestQueue.add(endpoint);
 		}	
 		
@@ -88,7 +88,7 @@ public class RpcResourceManager {
 			logger.info("running resource management, index " + index + ", affinity " + affinity + ", timeout " + timeout);
 			while(running){
 				try {
-					RpcClientEndpoint<?,?> endpoint = requestQueue.poll(timeout, TimeUnit.MILLISECONDS);
+					RpcEndpoint<?,?> endpoint = requestQueue.poll(timeout, TimeUnit.MILLISECONDS);
 					if (endpoint != null){
 						endpoint.allocateResources();
 						logger.info("allocating resources, cluster " + index + ", endpoint " + endpoint.getEndpointId());

@@ -30,9 +30,9 @@ public abstract class RdmaRpcService <R extends RdmaRpcMessage, T extends RdmaRp
 	public void processServerEvent(RpcServerEvent<R,T> event) throws IOException {
 	}
 	
-	public void open(RpcClientEndpoint<R,T> rpcClientEndpoint){
+	public void open(RpcEndpoint<R,T> rpcClientEndpoint){
 	}
 	
-	public void close(RpcClientEndpoint<R,T> rpcClientEndpoint) {
+	public void close(RpcEndpoint<R,T> rpcClientEndpoint) {
 	}
 }

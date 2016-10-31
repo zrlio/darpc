@@ -31,10 +31,10 @@ import com.ibm.disni.rdma.*;
 public class RpcStreamPassive <R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RpcStream<R,T> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	
-	private RpcPassiveClientEndpoint<R,T> endpoint;
+	private RpcPassiveEndpoint<R,T> endpoint;
 	private LinkedBlockingDeque<RpcFuturePassive<R, T>> completedList;
 	
-	RpcStreamPassive(RpcPassiveClientEndpoint<R,T> endpoint, int streamId) throws IOException{
+	RpcStreamPassive(RpcPassiveEndpoint<R,T> endpoint, int streamId) throws IOException{
 		if (endpoint.getCqProvider() instanceof RdmaCqProcessor){
 			throw new IOException("direct rpc mode only permitted at client side");
 		}

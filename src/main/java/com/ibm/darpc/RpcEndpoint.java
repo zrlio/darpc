@@ -36,7 +36,7 @@ import org.slf4j.LoggerFactory;
 import com.ibm.disni.rdma.verbs.*;
 import com.ibm.disni.rdma.*;
 
-public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RdmaEndpoint {
+public abstract class RpcEndpoint<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RdmaEndpoint {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	
 	public abstract RpcStream<R,T> createStream() throws IOException;
@@ -70,8 +70,8 @@ public abstract class RpcClientEndpoint<R extends RdmaRpcMessage, T extends Rdma
 	private AtomicLong messagesReceived;
 	
 	
-	public RpcClientEndpoint(RpcEndpointGroup<R, T> endpointGroup, RdmaCmId idPriv) throws IOException {
-		super(endpointGroup, idPriv);
+	public RpcEndpoint(RpcEndpointGroup<R, T> endpointGroup, RdmaCmId idPriv, boolean serverSide) throws IOException {
+		super(endpointGroup, idPriv, serverSide);
 		this.rpcGroup = endpointGroup;
 		this.maxinline = rpcGroup.getMaxInline();
 		this.getClusterId = rpcGroup.newClusterId();

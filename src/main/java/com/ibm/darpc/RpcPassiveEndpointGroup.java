@@ -45,7 +45,7 @@ public class RpcPassiveEndpointGroup<R extends RdmaRpcMessage, T extends RdmaRpc
 	
 	//------------
 	
-	public RdmaCqProvider createCqProvider(RpcClientEndpoint<R,T> endpoint)
+	public RdmaCqProvider createCqProvider(RpcEndpoint<R,T> endpoint)
 			throws IOException {
 		logger.info("setting up cq processor (multicore)");
 		
@@ -58,7 +58,7 @@ public class RpcPassiveEndpointGroup<R extends RdmaRpcMessage, T extends RdmaRpc
 		
 	}	
 	
-	public IbvQP createQpProvider(RpcClientEndpoint<R,T> endpoint) throws IOException{
+	public IbvQP createQpProvider(RpcEndpoint<R,T> endpoint) throws IOException{
 		
 		if (endpoint.isServerSide()){
 			RpcCluster<R,T>  cqProcessor = this.lookupCqProcessor(endpoint);
@@ -75,7 +75,7 @@ public class RpcPassiveEndpointGroup<R extends RdmaRpcMessage, T extends RdmaRpc
 		}
 	}	
 	
-	public static class RpcEndpointFactory<R extends RdmaRpcMessage, T extends RdmaRpcMessage> implements RdmaEndpointFactory<RpcClientEndpoint<R,T>> {
+	public static class RpcEndpointFactory<R extends RdmaRpcMessage, T extends RdmaRpcMessage> implements RdmaEndpointFactory<RpcEndpoint<R,T>> {
 		private RpcEndpointGroup<R, T> group;
 		
 		public RpcEndpointFactory(RpcEndpointGroup<R, T> group){
@@ -83,8 +83,8 @@ public class RpcPassiveEndpointGroup<R extends RdmaRpcMessage, T extends RdmaRpc
 		}
 		
 		@Override
-		public RpcClientEndpoint<R,T> createEndpoint(RdmaCmId id) throws IOException {
-			return new RpcPassiveClientEndpoint<R,T>(group, id);
+		public RpcEndpoint<R,T> createEndpoint(RdmaCmId id, boolean serverSide) throws IOException {
+			return new RpcPassiveEndpoint<R,T>(group, id, serverSide);
 		}
 	}	
 }

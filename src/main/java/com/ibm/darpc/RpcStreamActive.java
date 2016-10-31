@@ -30,10 +30,10 @@ import org.slf4j.LoggerFactory;
 public class RpcStreamActive <R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RpcStream<R,T> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	
-	private RpcActiveClientEndpoint<R,T> endpoint;
+	private RpcActiveEndpoint<R,T> endpoint;
 	private LinkedBlockingDeque<RpcFutureActive<R,T>> completedList;
 	
-	protected RpcStreamActive(RpcActiveClientEndpoint<R,T> endpoint, int streamId){
+	protected RpcStreamActive(RpcActiveEndpoint<R,T> endpoint, int streamId){
 		logger.info("new shared rpc stream");
 		this.endpoint = endpoint;
 		this.completedList = new LinkedBlockingDeque<RpcFutureActive<R,T>>();

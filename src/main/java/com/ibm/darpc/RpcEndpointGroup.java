@@ -31,7 +31,7 @@ import com.ibm.disni.rdma.verbs.*;
 import com.ibm.disni.rdma.*;
 
 
-public abstract class RpcEndpointGroup<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RdmaEndpointGroup<RpcClientEndpoint<R,T>> {
+public abstract class RpcEndpointGroup<R extends RdmaRpcMessage, T extends RdmaRpcMessage> extends RdmaEndpointGroup<RpcEndpoint<R,T>> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	private static int DARPC_VERSION = 46;
 	
@@ -85,11 +85,11 @@ public abstract class RpcEndpointGroup<R extends RdmaRpcMessage, T extends RdmaR
 		rpcService.processServerEvent(event);
 	}
 	
-	public void close(RpcClientEndpoint<R,T> endpoint){
+	public void close(RpcEndpoint<R,T> endpoint){
 		rpcService.close(endpoint);
 	}
 	
-	public void allocateResources(RpcClientEndpoint<R,T> endpoint) throws Exception {
+	public void allocateResources(RpcEndpoint<R,T> endpoint) throws Exception {
 		resourceManager.allocateResources(endpoint);
 	}
 	
@@ -99,7 +99,7 @@ public abstract class RpcEndpointGroup<R extends RdmaRpcMessage, T extends RdmaR
 		return newClusterId;
 	}
 	
-	protected synchronized RpcCluster<R,T> createCqProcessor(RpcClientEndpoint<R,T> endpoint) throws IOException{
+	protected synchronized RpcCluster<R,T> createCqProcessor(RpcEndpoint<R,T> endpoint) throws IOException{
 		IbvContext context = endpoint.getIdPriv().getVerbs();
 		if (context == null) {
 			throw new IOException("setting up cq processor, no context found");
@@ -117,7 +117,7 @@ public abstract class RpcEndpointGroup<R extends RdmaRpcMessage, T extends RdmaR
 		return cqProcessor;
 	}
 	
-	protected synchronized RpcCluster<R,T> lookupCqProcessor(RpcClientEndpoint<R,T> endpoint) throws IOException{
+	protected synchronized RpcCluster<R,T> lookupCqProcessor(RpcEndpoint<R,T> endpoint) throws IOException{
 		IbvContext context = endpoint.getIdPriv().getVerbs();
 		if (context == null) {
 			throw new IOException("setting up cq processor, no context found");

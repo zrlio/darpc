@@ -24,12 +24,12 @@ package com.ibm.darpc;
 import java.io.IOException;
 
 public class RpcServerEvent<R extends RdmaRpcMessage, T extends RdmaRpcMessage> implements RpcEvent<R,T> {
-	private RpcClientEndpoint<R,T> endpoint;
+	private RpcEndpoint<R,T> endpoint;
 	private R request;
 	private T response;
 	private int ticket;
 	
-	RpcServerEvent(RpcClientEndpoint<R,T> endpoint, R request, T response){
+	RpcServerEvent(RpcEndpoint<R,T> endpoint, R request, T response){
 		this.endpoint = endpoint;
 		this.request = request;
 		this.response = response;

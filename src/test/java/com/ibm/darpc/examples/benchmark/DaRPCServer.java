@@ -4,7 +4,7 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 
 import com.ibm.darpc.RpcActiveEndpointGroup;
-import com.ibm.darpc.RpcClientEndpoint;
+import com.ibm.darpc.RpcEndpoint;
 import com.ibm.darpc.examples.benchmark.RdmaRpcProtocol;
 import com.ibm.disni.rdma.RdmaServerEndpoint;
 import com.ibm.disni.util.*;
@@ -74,7 +74,7 @@ public class DaRPCServer {
 		System.out.println("poolsize " + poolsize + ", affinity size " + clusterAffinities.length);
 		RdmaRpcService rpcService = new RdmaRpcService();
 		RpcActiveEndpointGroup<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> group = RpcActiveEndpointGroup.createDefault(rpcService, clusterAffinities, -1, maxinline, polling, rpcpipeline, 4, rpcpipeline);
-		RdmaServerEndpoint<RpcClientEndpoint<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse>> serverEp = group.createServerEndpoint();
+		RdmaServerEndpoint<RpcEndpoint<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse>> serverEp = group.createServerEndpoint();
 		serverEp.bind(addr, 1000);
 		System.out.println("Opened rdma server2 at " + addr);
 
