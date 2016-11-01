@@ -8,18 +8,12 @@ import com.ibm.disni.rdma.verbs.IbvCQ;
 import com.ibm.disni.rdma.verbs.IbvQP;
 import com.ibm.disni.rdma.verbs.RdmaCmId;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public class RpcClientGroup<R extends RpcMessage, T extends RpcMessage> extends RpcEndpointGroup<RpcClientEndpoint<R,T>, R, T> {
-	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
-
 	public static <R extends RpcMessage, T extends RpcMessage> RpcClientGroup<R, T> createServerGroup(RpcProtocol<R, T> protocol, long[] clusterAffinities, int timeout, int maxinline, boolean polling, int rpcpipeline, int maxSge, int cqSize) throws Exception {
 		RpcClientGroup<R,T> group = new RpcClientGroup<R,T>(protocol, timeout, maxinline, rpcpipeline, maxSge, cqSize);
 		group.init(new RpcClientFactory<R,T>(group));
 		return group;
 	}	
-	
 	
 	public RpcClientGroup(RpcProtocol<R, T> protocol, int timeout, int maxinline, int rpcpipeline, int maxSge, int cqSize)
 			throws Exception {

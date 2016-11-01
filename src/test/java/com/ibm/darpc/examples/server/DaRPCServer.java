@@ -106,9 +106,6 @@ public class DaRPCServer {
 	}
 	
 	public void launch(String[] args) throws Exception {
-		String _provider = "mem";
-		String _logLevel = "Info";
-		
 		String[] _args = args;
 		if (args.length < 1) {
 			System.exit(0);

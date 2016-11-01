@@ -35,12 +35,10 @@ public class RpcInstance<R extends RpcMessage, T extends RpcMessage> {
 	private RpcCluster<R,T>[] processorArray;
 	protected ConcurrentHashMap<RdmaCmId, Object> ids;
 	private int poolsize;
-	private int cqSize;
 	
 	@SuppressWarnings("unchecked")
 	public RpcInstance(IbvContext context, int cqSize, int wrSize, long[] affinities, int timeout, boolean polling) throws IOException {
 		this.poolsize = affinities.length;
-		this.cqSize = cqSize;
 		logger.info("new cq pool, size " + poolsize);
 		processorArray = new RpcCluster[affinities.length];
 		for (int i = 0; i < affinities.length; i++){

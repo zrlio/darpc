@@ -3,7 +3,6 @@ package com.ibm.darpc;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.slf4j.Logger;
@@ -24,6 +23,7 @@ public class RpcFuture<R extends RpcMessage, T extends RpcMessage> implements Fu
 	private RpcClientEndpoint<R,T> endpoint;
 	private boolean streamLogged;
 	private AtomicInteger status;
+	private AtomicInteger recvStatus;
 	
 	public RpcFuture(RpcStream<R,T> stream, RpcClientEndpoint<R,T> endpoint, R request, T response, boolean streamLogged){
 		this.request = request;
@@ -34,6 +34,7 @@ public class RpcFuture<R extends RpcMessage, T extends RpcMessage> implements Fu
 		this.endpoint = endpoint;
 		this.status = new AtomicInteger(RPC_PENDING);
 		this.streamLogged = streamLogged;
+		this.recvStatus = new AtomicInteger(0);
 	}	
 	
 	public int getTicket() {
@@ -120,17 +121,24 @@ public class RpcFuture<R extends RpcMessage, T extends RpcMessage> implements Fu
 	
 	@Override
 	public boolean cancel(boolean mayInterruptIfRunning) {
-		// TODO Auto-generated method stub
 		return false;
 	}
 
 	@Override
 	public boolean isCancelled() {
-		// TODO Auto-generated method stub
 		return false;
 	}
 	
 	public boolean isStreamLogged() {
 		return streamLogged;
+	}
+	
+	public boolean touch(){
+		if (recvStatus.incrementAndGet() == 2){
+			recvStatus.set(0);
+			return true;
+		} else {
+			return false;
+		}
 	}
 }

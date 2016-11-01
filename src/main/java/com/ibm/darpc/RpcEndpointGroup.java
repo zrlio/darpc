@@ -33,7 +33,6 @@ public abstract class RpcEndpointGroup<E extends RpcEndpoint<R,T>, R extends Rpc
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	private static int DARPC_VERSION = 46;
 	
-	private RpcProtocol<R,T> protocol;
 	private int cqSize;
 	private int rpcpipeline;
 	private int maxSge;
@@ -47,7 +46,6 @@ public abstract class RpcEndpointGroup<E extends RpcEndpoint<R,T>, R extends Rpc
 	
 	protected RpcEndpointGroup(RpcProtocol<R,T> protocol, int timeout, int maxinline, int rpcpipeline, int maxSge, int cqSize) throws Exception {
 		super(timeout);
-		this.protocol = protocol;
 		this.timeout = timeout;
 		this.bufferSize = Math.max(protocol.createRequest().size(), protocol.createResponse().size());
 		this.rpcpipeline = rpcpipeline;

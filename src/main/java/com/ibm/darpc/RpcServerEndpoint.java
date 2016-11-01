@@ -7,25 +7,23 @@ import java.util.concurrent.ArrayBlockingQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ibm.disni.rdma.verbs.IbvWC;
 import com.ibm.disni.rdma.verbs.RdmaCmEvent;
 import com.ibm.disni.rdma.verbs.RdmaCmId;
-import com.ibm.disni.rdma.verbs.SVCPostRecv;
 
 public class RpcServerEndpoint<R extends RpcMessage, T extends RpcMessage> extends RpcEndpoint<R,T> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	
 	private RpcServerGroup<R, T> group;
 	private ArrayBlockingQueue<RpcServerEvent<R,T>> eventPool;
-	private ArrayBlockingQueue<RpcServerEvent<R,T>> pendingEvents;
-	private ArrayBlockingQueue<SendOperation> freePostSend;
+	private ArrayBlockingQueue<RpcServerEvent<R,T>> lazyEvents;
 	private int getClusterId;
 	
-	public RpcServerEndpoint(RpcServerGroup<R, T> endpointGroup, RdmaCmId idPriv, boolean serverSide) throws IOException {
-		super(endpointGroup, idPriv, serverSide);
-		this.group = endpointGroup;
+	public RpcServerEndpoint(RpcServerGroup<R, T> group, RdmaCmId idPriv, boolean serverSide) throws IOException {
+		super(group, idPriv, serverSide);
+		this.group = group;
 		this.getClusterId = group.newClusterId();
-		this.freePostSend = new ArrayBlockingQueue<SendOperation>(group.getRpcpipeline());
+		this.eventPool = new ArrayBlockingQueue<RpcServerEvent<R,T>>(group.getRpcpipeline());
+		this.lazyEvents = new ArrayBlockingQueue<RpcServerEvent<R,T>>(group.getRpcpipeline());
 	}
 
 	public void init() throws IOException {
@@ -42,6 +40,8 @@ public class RpcServerEndpoint<R extends RpcMessage, T extends RpcMessage> exten
 	void sendResponse(RpcServerEvent<R,T> event) throws IOException {
 		if (sendMessage(event.getSendMessage(), event.getTicket())){
 			eventPool.add(event);
+		} else {
+			lazyEvents.add(event);
 		}
 	}	
 	
@@ -62,7 +62,7 @@ public class RpcServerEndpoint<R extends RpcMessage, T extends RpcMessage> exten
 		return getClusterId;
 	}
 	
-	public void dispatchReceive(ByteBuffer recvBuffer, int ticket, SVCPostRecv postRecv) throws IOException {
+	public void dispatchReceive(ByteBuffer recvBuffer, int ticket, int recvIndex) throws IOException {
 		RpcServerEvent<R,T> event = eventPool.poll();
 		if (event == null){
 			logger.info("no free events, must be overrunning server.. ");
@@ -70,18 +70,15 @@ public class RpcServerEndpoint<R extends RpcMessage, T extends RpcMessage> exten
 		}
 		event.getReceiveMessage().update(recvBuffer);
 		event.stamp(ticket);
-		postRecv.execute();
+		postRecv(recvIndex);
 		group.processServerEvent(event);			
 	}
 	
 	public void dispatchSend(int ticket) throws IOException {
 		freeSend(ticket);		
+		RpcServerEvent<R,T> event = lazyEvents.poll();
+		if (event != null){
+			sendResponse(event);
+		}
 	}
-
-	@Override
-	public com.ibm.darpc.RpcEndpoint.SendOperation getSendSlot(ArrayBlockingQueue<com.ibm.darpc.RpcEndpoint.SendOperation> freePostSend)
-			throws IOException {
-		return null;
-	}	
-
 }

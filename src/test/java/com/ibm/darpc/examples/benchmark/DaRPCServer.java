@@ -12,7 +12,6 @@ public class DaRPCServer {
 	private String ipAddress; 
 	private int poolsize = 3;
 	private int rpcpipeline = 2;
-	private int servicetimeout = 0;
 	private boolean polling = false;
 	private int maxinline = 0;
 	
@@ -83,9 +82,6 @@ public class DaRPCServer {
 	}
 	
 	public void launch(String[] args) throws Exception {
-		String _provider = "mem";
-		String _logLevel = "Info";
-		
 		String[] _args = args;
 		if (args.length < 1) {
 			System.exit(0);
@@ -114,8 +110,6 @@ public class DaRPCServer {
 				poolsize = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 'r') {
 				rpcpipeline = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 't') {
-				servicetimeout = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 'd') {
 				polling = true;
 			} else if ((char) ch == 'i') {

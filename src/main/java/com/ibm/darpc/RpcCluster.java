@@ -22,16 +22,10 @@
 package com.ibm.darpc;
 
 import java.io.IOException;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.ibm.disni.rdma.verbs.*;
 import com.ibm.disni.rdma.*;
 
 public class RpcCluster<R extends RpcMessage, T extends RpcMessage> extends RdmaCqProcessor<RpcEndpoint<R,T>>{
-	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
-	
 	public RpcCluster(IbvContext context, int cqSize, int wrSize, long affinity, int clusterId,
 			int timeout, boolean polling) throws IOException {
 		super(context, cqSize, wrSize, affinity, clusterId, timeout, polling);

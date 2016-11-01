@@ -23,13 +23,6 @@ public class RdmaRpcService extends RdmaRpcProtocol implements RpcService<RdmaRp
 	}
 	
 	public void processServerEvent(RpcServerEvent<RdmaRpcRequest, RdmaRpcResponse> event) throws IOException {
-		RdmaRpcRequest request = event.getReceiveMessage();
-		RdmaRpcResponse response = event.getSendMessage();
-//		System.out.println("got rpc request, size " + request.getData().length);
-		if (PARSE_FILENAME){
-			String filename = new String(request.getData());
-//			System.out.println("got rpc request, filename " + filename);
-		} 
 		if (THREAD_POOL){
 			try {
 				synchronized(this){
@@ -44,7 +37,6 @@ public class RdmaRpcService extends RdmaRpcProtocol implements RpcService<RdmaRp
 				System.out.println("exception caught " + e.getMessage());
 			}
 		}
-		
 		event.triggerResponse();
 	}
 
@@ -53,9 +45,8 @@ public class RdmaRpcService extends RdmaRpcProtocol implements RpcService<RdmaRp
 		System.out.println("starting event processing...");
 		try {
 			while(true){
-				RpcServerEvent<RdmaRpcRequest, RdmaRpcResponse> event = requestQueue.take();
+				requestQueue.take();
 				synchronized(this){
-//					System.out.println("got event");
 					ready = true;
 					notify();
 				}
@@ -66,14 +57,12 @@ public class RdmaRpcService extends RdmaRpcProtocol implements RpcService<RdmaRp
 	}
 
 	@Override
-	public void open(RpcEndpoint rpcClientEndpoint) {
-		// TODO Auto-generated method stub
+	public void open(RpcEndpoint<RdmaRpcRequest, RdmaRpcResponse> rpcClientEndpoint) {
 		
 	}
 
 	@Override
-	public void close(RpcEndpoint rpcClientEndpoint) {
-		// TODO Auto-generated method stub
+	public void close(RpcEndpoint<RdmaRpcRequest, RdmaRpcResponse> rpcClientEndpoint) {
 		
 	}
 	

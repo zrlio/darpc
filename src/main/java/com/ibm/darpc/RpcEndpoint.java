@@ -39,8 +39,7 @@ import com.ibm.disni.rdma.*;
 public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> extends RdmaEndpoint {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	
-	public abstract SendOperation getSendSlot(ArrayBlockingQueue<SendOperation> freePostSend) throws IOException;
-	public abstract void dispatchReceive(ByteBuffer buffer, int ticket, SVCPostRecv postRecv) throws IOException;
+	public abstract void dispatchReceive(ByteBuffer buffer, int ticket, int recvIndex) throws IOException;
 	public abstract void dispatchSend(int ticket) throws IOException;
 	
 	private RpcEndpointGroup<? extends RpcEndpoint<R,T>, R, T> rpcGroup;
@@ -53,8 +52,6 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 	private ConcurrentHashMap<Integer, SendOperation> pendingPostSend;
 	private ArrayBlockingQueue<SendOperation> freePostSend;
 	private AtomicLong ticketCount;
-	private Object overFlowLock;
-	private long maxInt;
 	private int pipelineLength;
 	private int bufferSize;
 	private int maxinline;
@@ -76,8 +73,6 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 		this.sendCall = new SendOperation[pipelineLength];
 		this.recvMRs = new IbvMr[pipelineLength];
 		this.sendMRs = new IbvMr[pipelineLength];
-		this.overFlowLock = new Object();
-		this.maxInt = (long) Integer.MAX_VALUE;
 		this.ticketCount = new AtomicLong(0);
 		this.messagesSent = new AtomicLong(0);
 		this.messagesReceived = new AtomicLong(0);
@@ -112,132 +107,31 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 		return messagesReceived.get();
 	}
 	
-	public void dispatchCqEvent(IbvWC wc) throws IOException {
-		if (wc.getStatus() == 5){
-//			logger.info("flush wc");
-		} else if (wc.getStatus() != 0){
-			logger.info("faulty request, status " + wc.getStatus());
-		} 	
-		
-		if (wc.getOpcode() == 128){
-			int index = (int) wc.getWr_id();
-			ByteBuffer recvBuffer = recvBufs[index];
-			SVCPostRecv postRecv = recvCall[index];			
-			int ticket = recvBuffer.getInt(0);
-			recvBuffer.position(4);
-			dispatchReceive(recvBuffer, ticket, postRecv);
-		} else if (wc.getOpcode() == 0) {
-			int index = (int) wc.getWr_id();
-			ByteBuffer sendBuffer = sendBufs[index];
-			int ticket = sendBuffer.getInt(0);				
-			freeSend(ticket);
+	protected boolean sendMessage(RpcMessage message, int ticket) throws IOException {
+		SendOperation sendOperation = freePostSend.poll();
+		if (sendOperation != null){
+			SVCPostSend postSend = sendOperation.getPostSend();
+			int index = (int) postSend.getWrMod(0).getWr_id();
+			sendBufs[index].putInt(0, ticket);
+			sendBufs[index].position(4);
+			int written = 4 + message.write(sendBufs[index]);
+			postSend.getWrMod(0).getSgeMod(0).setLength(written);
+			postSend.getWrMod(0).setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
+			if (written <= maxinline) {
+				postSend.getWrMod(0).setSend_flags(postSend.getWrMod(0).getSend_flags() | IbvSendWR.IBV_SEND_INLINE);
+			} 
+			pendingPostSend.put(ticket, sendOperation);
+			postSend.execute();
+			messagesSent.incrementAndGet();
+			return true;
 		} else {
-			throw new IOException("Unkown opcode " + wc.getOpcode());
-		}		
+			return false;
+		}
+	}
+	
+	protected void postRecv(int index) throws IOException {
+		recvCall[index].execute();
 	}	
-	
-//	public void dispatchCqEvent(IbvWC wc) throws IOException {
-//		if (wc.getOpcode() == 128){
-//			if (isServerSide()) {
-//				dispatchServerReceive(wc);
-//			} else {
-//				dispatchClientReceive(wc);
-//			}
-//			messagesReceived.incrementAndGet();
-//		} else if (wc.getOpcode() == 0) {
-//			if (isServerSide()) {
-//				dispatchServerSend(wc);
-//			} else {
-//				dispatchClientSend(wc);
-//			}
-//			if (!freePostSend.isEmpty()){
-//				RpcEvent<? extends RdmaRpcMessage, ? extends RdmaRpcMessage> event = this.pendingEvents.poll();
-//				if (event != null){
-//					sendMessage(event);
-//				}			
-//			}
-//		} else {
-//			throw new IOException("Unkown opcode " + wc.getOpcode());
-//		}		
-//	}
-	
-//	private void dispatchClientReceive(IbvWC wc) throws IOException {
-//			if (wc.getStatus() == 5){
-//	//			logger.info("flush wc");
-//			} else if (wc.getStatus() != 0){
-//				logger.info("faulty request, status " + wc.getStatus());
-//			} else {
-//				// assuming wc.getOpcode() == 128, endpoint.isServerSide() = false
-//				int index = (int) wc.getWr_id();
-//				ByteBuffer recvBuffer = recvBufs[index];
-//				int ticket = recvBuffer.getInt(0);
-//				recvBuffer.position(4);
-//				RpcFuture<R, T> future = pendingFutures.remove(ticket);
-//				future.getReceiveMessage().update(recvBuffer);
-//				SVCPostRecv postRecv = recvCall[index];
-//				postRecv.execute();
-//				future.signal(wc.getStatus());
-//				SendOperation sendOperation = pendingPostSend.get(ticket);
-//				if (sendOperation.touchOperation()){
-//					freeSend(ticket);
-//				}
-//			}
-//		}
-	
-	
-//	private void dispatchServerReceive(IbvWC wc) throws IOException {
-//			if (wc.getStatus() == 5){
-//	//			logger.info("flush wc");
-//			} else if (wc.getStatus() != 0){
-//				logger.info("faulty request, status " + wc.getStatus());
-//			} else {
-//				//assuming wc.getOpcode() == 128, endpoint.isServerSide() = true
-//				int index = (int) wc.getWr_id();
-//				ByteBuffer recvBuffer = recvBufs[index];
-//				SVCPostRecv postRecv = recvCall[index];
-//				RpcServerEvent<R,T> event = eventPool.poll();
-//				if (event == null){
-//					logger.info("no free events, must be overrunning server.. , messages sent " + messagesSent.get() + ", messagesReceived " + messagesReceived.get());
-//					throw new IOException("no free events, must be overrunning server.. , messages sent " + messagesSent.get() + ", messagesReceived " + messagesReceived.get());
-//				}
-//				int ticket = recvBuffer.getInt(0);
-//				recvBuffer.position(4);
-//				event.getReceiveMessage().update(recvBuffer);
-//				postRecv.execute();
-//				event.stamp(ticket);
-//				rpcGroup.processServerEvent(event);			
-//			}
-//		}
-//	private void dispatchServerSend(IbvWC wc) throws IOException {
-//		if (wc.getStatus() == 5){
-////				logger.info("flush wc");
-//		} else if (wc.getStatus() != 0){
-//			logger.info("faulty request, status " + wc.getStatus());
-//		} else {
-//			//assuming wc.getOpcode() == 0
-//			int index = (int) wc.getWr_id();
-//			ByteBuffer sendBuffer = sendBufs[index];
-//			int ticket = sendBuffer.getInt(0);				
-//			freeSend(ticket);
-//		}
-//	}
-	
-//	private void dispatchClientSend(IbvWC wc) throws IOException {
-//		if (wc.getStatus() == 5){
-////				logger.info("flush wc");
-//		} else if (wc.getStatus() != 0){
-//			logger.info("faulty request, status " + wc.getStatus());
-//		} else {
-//			//assuming wc.getOpcode() == 0
-//			int index = (int) wc.getWr_id();
-//			ByteBuffer sendBuffer = sendBufs[index];
-//			int ticket = sendBuffer.getInt(0);				
-//			SendOperation sendOperation = pendingPostSend.get(ticket);
-//			if (sendOperation.touchOperation()){
-//				freeSend(ticket);
-//			}
-//		}
-//	}	
 	
 	public void freeSend(int ticket) throws IOException {
 		SendOperation sendOperation = pendingPostSend.remove(ticket);
@@ -247,39 +141,30 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 		this.freePostSend.add(sendOperation);
 	}	
 	
-//	void sendResponse(RpcServerEvent<R,T> event) throws IOException {
-//		if (sendMessage(event)){
-//			eventPool.add(event);
-//		}
-//	}
-	
-//	int sendRequest(RpcFuture<R,T> future) throws IOException {
-//		int ticket = getAndIncrement();
-//		future.stamp(ticket);
-//		pendingFutures.put(future.getTicket(), future);
-//		sendMessage(future);
-//		return ticket;
-//	}
-	
-	protected boolean sendMessage(RpcMessage message, int ticket) throws IOException {
-		SendOperation sendOperation = getSendSlot(freePostSend);
-		SVCPostSend postSend = sendOperation.getPostSend();
-		int index = (int) postSend.getWrMod(0).getWr_id();
-		sendBufs[index].putInt(0, ticket);
-		sendBufs[index].position(4);
-		int written = 4 + message.write(sendBufs[index]);
-		postSend.getWrMod(0).getSgeMod(0).setLength(written);
-		postSend.getWrMod(0).setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
-		if (written <= maxinline) {
-			// inlining
-			postSend.getWrMod(0).setSend_flags(postSend.getWrMod(0).getSend_flags() | IbvSendWR.IBV_SEND_INLINE);
-		} 
+	public void dispatchCqEvent(IbvWC wc) throws IOException {
+		if (wc.getStatus() == 5){
+//			logger.info("flush wc");
+		} else if (wc.getStatus() != 0){
+			logger.info("faulty request, status " + wc.getStatus());
+		} 	
 		
-		pendingPostSend.put(ticket, sendOperation);
-		postSend.execute();
-		messagesSent.incrementAndGet();
-		return true;
-	}
+		if (wc.getOpcode() == 128){
+			//receiving a message
+			int index = (int) wc.getWr_id();
+			ByteBuffer recvBuffer = recvBufs[index];
+			int ticket = recvBuffer.getInt(0);
+			recvBuffer.position(4);
+			dispatchReceive(recvBuffer, ticket, index);
+		} else if (wc.getOpcode() == 0) {
+			//send completion
+			int index = (int) wc.getWr_id();
+			ByteBuffer sendBuffer = sendBufs[index];
+			int ticket = sendBuffer.getInt(0);
+			dispatchSend(ticket);
+		} else {
+			throw new IOException("Unkown opcode " + wc.getOpcode());
+		}		
+	}	
 	
 	private SendOperation setupSendTask(ByteBuffer sendBuf, int wrid) throws IOException {
 		ArrayList<IbvSendWR> sendWRs = new ArrayList<IbvSendWR>(1);
@@ -325,23 +210,6 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 		return postRecv(recvWRs);
 	}
 
-	private int getAndIncrement() {
-		long _value = ticketCount.getAndIncrement();
-		
-		if (_value >= maxInt){
-			synchronized(overFlowLock){
-				_value = ticketCount.get();
-				if (_value >= maxInt){
-					ticketCount.set(0);
-				}
-			}
-			_value = ticketCount.getAndIncrement();
-		}
-		
-		long value = _value % maxInt;
-		return (int) value;
-	}
-	
 	static class SendOperation {
 		SVCPostSend postSend;
 		AtomicInteger counter;

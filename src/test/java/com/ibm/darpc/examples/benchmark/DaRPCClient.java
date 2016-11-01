@@ -82,8 +82,7 @@ public class DaRPCClient {
 						break;		
 					case FUTURE_TAKE:
 						if (future.get(clienttimeout, TimeUnit.MILLISECONDS) != null){
-							RdmaRpcResponse val = future.getReceiveMessage();
-//							System.out.println("join: i " + i + ", response " + val.getName() + ", ticket " + future.getTicket() + ", eid " + clientEp.getEndpointId());
+//							System.out.println("join: i " + i + ", response " + future.getReceiveMessage().getName() + ", ticket " + future.getTicket() + ", eid " + clientEp.getEndpointId());
 							freeResponses.add(future.getReceiveMessage());
 						} else {
 							System.out.println("invalid value");
@@ -163,17 +162,13 @@ public class DaRPCClient {
 	}
 	
 	public void launch(String[] args) throws Exception {
-		String _provider = "mem";
-		String _logLevel = "Info";
 		String ipAddress = ""; 
 		int size = 24;
 		int loop = 100;
 		int threadCount = 1;
 		int mode = ClientThread.FUTURE_POLL;
-		boolean shared = false;
 		int rpcpipeline = 2;
 		int poolsize = 3;
-		int connections = 1;
 		int clienttimeout = 3000;
 		int maxinline = 0;
 
@@ -220,14 +215,10 @@ public class DaRPCClient {
 				} else if (_mode.equalsIgnoreCase("batch-stream-poll")) {
 					mode = ClientThread.BATCH_STREAM_POLL;
 				}
-			} else if ((char) ch == 'h') {
-				shared = true;
-			}  else if ((char) ch == 'r') {
+			} else if ((char) ch == 'r') {
 				rpcpipeline = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 'p') {
 				poolsize = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'c') {
-				connections = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 't') {
 				clienttimeout = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 'i') {
