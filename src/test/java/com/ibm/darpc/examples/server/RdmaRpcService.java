@@ -53,18 +53,6 @@ public class RdmaRpcService extends RdmaRpcProtocol implements RpcService<RdmaRp
 	}
 
 	@Override
-	public RdmaRpcRequest createRequest() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
-	public RdmaRpcResponse createResponse() {
-		// TODO Auto-generated method stub
-		return null;
-	}
-
-	@Override
 	public void open(RpcEndpoint<RdmaRpcRequest, RdmaRpcResponse> rpcClientEndpoint) {
 	}
 
