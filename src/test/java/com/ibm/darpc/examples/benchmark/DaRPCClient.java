@@ -253,7 +253,7 @@ public class DaRPCClient {
 		InetAddress localHost = InetAddress.getByName(ipAddress);
 		InetSocketAddress address = new InetSocketAddress(localHost, 1919);		
 		RdmaRpcProtocol rpcProtocol = new RdmaRpcProtocol();
-		RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = new RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse>(rpcProtocol, 100, maxinline, rpcpipeline, 4, rpcpipeline);
+		RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcClientGroup.createClientGroup(rpcProtocol, 100, maxinline, rpcpipeline, 4, rpcpipeline);
 		
 		System.out.println("starting connection ");
 		RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp = group.createEndpoint();

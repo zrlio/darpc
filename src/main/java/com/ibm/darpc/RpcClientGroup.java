@@ -9,13 +9,13 @@ import com.ibm.disni.rdma.verbs.IbvQP;
 import com.ibm.disni.rdma.verbs.RdmaCmId;
 
 public class RpcClientGroup<R extends RpcMessage, T extends RpcMessage> extends RpcEndpointGroup<RpcClientEndpoint<R,T>, R, T> {
-	public static <R extends RpcMessage, T extends RpcMessage> RpcClientGroup<R, T> createServerGroup(RpcProtocol<R, T> protocol, long[] clusterAffinities, int timeout, int maxinline, boolean polling, int rpcpipeline, int maxSge, int cqSize) throws Exception {
+	public static <R extends RpcMessage, T extends RpcMessage> RpcClientGroup<R, T> createClientGroup(RpcProtocol<R, T> protocol, int timeout, int maxinline, int rpcpipeline, int maxSge, int cqSize) throws Exception {
 		RpcClientGroup<R,T> group = new RpcClientGroup<R,T>(protocol, timeout, maxinline, rpcpipeline, maxSge, cqSize);
 		group.init(new RpcClientFactory<R,T>(group));
 		return group;
 	}	
 	
-	public RpcClientGroup(RpcProtocol<R, T> protocol, int timeout, int maxinline, int rpcpipeline, int maxSge, int cqSize)
+	private RpcClientGroup(RpcProtocol<R, T> protocol, int timeout, int maxinline, int rpcpipeline, int maxSge, int cqSize)
 			throws Exception {
 		super(protocol, timeout, maxinline, rpcpipeline, maxSge, cqSize);
 	}

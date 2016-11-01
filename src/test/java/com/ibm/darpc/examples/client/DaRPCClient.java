@@ -295,7 +295,7 @@ public class DaRPCClient {
 		InetAddress localHost = InetAddress.getByName(ipAddress);
 		InetSocketAddress address = new InetSocketAddress(localHost, 1919);		
 		RdmaRpcProtocol rpcProtocol = new RdmaRpcProtocol();
-		RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = new RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse>(rpcProtocol, 100, maxinline, rpcpipeline, 4, rpcpipeline);
+		RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcClientGroup.createClientGroup(rpcProtocol, 100, maxinline, rpcpipeline, 4, rpcpipeline);
 		
 		int k = 0;
 		for (int i = 0; i < rpcConnections.length; i++){
