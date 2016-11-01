@@ -23,10 +23,14 @@ package com.ibm.darpc.examples.server;
 
 import java.io.IOException;
 
+import com.ibm.darpc.RpcEndpoint;
 import com.ibm.darpc.RpcServerEvent;
+import com.ibm.darpc.RpcService;
 import com.ibm.darpc.examples.protocol.RdmaRpcProtocol;
+import com.ibm.darpc.examples.protocol.RdmaRpcRequest;
+import com.ibm.darpc.examples.protocol.RdmaRpcResponse;
 
-public class RdmaRpcService extends RdmaRpcProtocol {
+public class RdmaRpcService extends RdmaRpcProtocol implements RpcService<RdmaRpcRequest, RdmaRpcResponse> {
 	private int servicetimeout;
 	
 	public RdmaRpcService(int servicetimeout){
@@ -34,9 +38,9 @@ public class RdmaRpcService extends RdmaRpcProtocol {
 		System.out.println("RpcService with timeout " + servicetimeout);
 	}
 	
-	public void processServerEvent(RpcServerEvent<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> event) throws IOException {
-		RdmaRpcProtocol.RdmaRpcRequest request = event.getReceiveMessage();
-		RdmaRpcProtocol.RdmaRpcResponse response = event.getSendMessage();
+	public void processServerEvent(RpcServerEvent<RdmaRpcRequest, RdmaRpcResponse> event) throws IOException {
+		RdmaRpcRequest request = event.getReceiveMessage();
+		RdmaRpcResponse response = event.getSendMessage();
 		response.setName(request.getParam() + 1);
 		if (servicetimeout > 0){
 			try {
@@ -47,5 +51,24 @@ public class RdmaRpcService extends RdmaRpcProtocol {
 		}
 		event.triggerResponse();
 	}
-	
+
+	@Override
+	public RdmaRpcRequest createRequest() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public RdmaRpcResponse createResponse() {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void open(RpcEndpoint<RdmaRpcRequest, RdmaRpcResponse> rpcClientEndpoint) {
+	}
+
+	@Override
+	public void close(RpcEndpoint<RdmaRpcRequest, RdmaRpcResponse> rpcClientEndpoint) {
+	}
 }

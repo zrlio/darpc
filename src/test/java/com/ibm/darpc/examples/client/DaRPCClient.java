@@ -29,14 +29,14 @@ import java.nio.channels.FileChannel;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import com.ibm.darpc.RpcActiveEndpointGroup;
+import com.ibm.darpc.RpcClientEndpoint;
+import com.ibm.darpc.RpcClientGroup;
 import com.ibm.darpc.RpcEndpoint;
-import com.ibm.darpc.RpcEndpointGroup;
 import com.ibm.darpc.RpcFuture;
-import com.ibm.darpc.RpcPassiveEndpointGroup;
 import com.ibm.darpc.RpcStream;
 import com.ibm.darpc.examples.protocol.RdmaRpcProtocol;
-import com.ibm.darpc.examples.protocol.RdmaRpcProtocol.*;
+import com.ibm.darpc.examples.protocol.RdmaRpcRequest;
+import com.ibm.darpc.examples.protocol.RdmaRpcResponse;
 import com.ibm.disni.util.*;
 
 public class DaRPCClient {
@@ -52,7 +52,7 @@ public class DaRPCClient {
 		public static final int BATCH_STREAM_TAKE = 4;
 		public static final int BATCH_STREAM_POLL = 5;
 		
-		private RpcEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp;
+		private RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp;
 		private int loop;
 		private int queryMode;
 		private int rpcpipeline;
@@ -65,7 +65,7 @@ public class DaRPCClient {
 		protected double errorOps;		
 		private double ops;		
 		
-		public ClientThread(RpcEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp, int loop, InetSocketAddress address, int mode, int rpcpipeline, int clienttimeout){
+		public ClientThread(RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp, int loop, InetSocketAddress address, int mode, int rpcpipeline, int clienttimeout){
 			this.clientEp = clientEp;
 			this.loop = loop;
 			this.queryMode = mode;
@@ -97,9 +97,9 @@ public class DaRPCClient {
 					case FUTURE_POLL:
 						while (!future.isDone()) {
 						}
-						if (future.getReceiveMessage().getName() != future.getSendMessage().getParam() + 1){
-							System.out.println("############## wrong RPC return value!!");
-						}
+//						if (future.getReceiveMessage().getName() != future.getSendMessage().getParam() + 1){
+//							System.out.println("############## wrong RPC return value!!");
+//						}
 						freeResponses.add(future.getReceiveMessage());
 						stream.clear();
 						break;
@@ -224,8 +224,8 @@ public class DaRPCClient {
 				ipAddress = go.optArgGet();
 			} else if ((char) ch == 's') {
 				int serialized_size = Integer.parseInt(go.optArgGet());
-				RdmaRpcProtocol.RdmaRpcRequest.SERIALIZED_SIZE = serialized_size;
-				RdmaRpcProtocol.RdmaRpcResponse.SERIALIZED_SIZE = serialized_size;
+				RdmaRpcRequest.SERIALIZED_SIZE = serialized_size;
+				RdmaRpcResponse.SERIALIZED_SIZE = serialized_size;
 			} else if ((char) ch == 'k') {
 				loop = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 'n') {
@@ -299,17 +299,12 @@ public class DaRPCClient {
 		InetAddress localHost = InetAddress.getByName(ipAddress);
 		InetSocketAddress address = new InetSocketAddress(localHost, 1919);		
 		RdmaRpcProtocol rpcProtocol = new RdmaRpcProtocol();
-		RpcEndpointGroup<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> group;
-		if (shared){
-			group = RpcActiveEndpointGroup.createDefault(rpcProtocol, clusterAffinities, 100, maxinline, false, rpcpipeline, 4, rpcpipeline);
-		} else {
-			group = RpcPassiveEndpointGroup.createDefault(rpcProtocol, clusterAffinities, 100, maxinline, false, rpcpipeline, 4, rpcpipeline);
-		}
+		RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = new RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse>(rpcProtocol, 100, maxinline, rpcpipeline, 4, rpcpipeline);
 		
 		int k = 0;
 		for (int i = 0; i < rpcConnections.length; i++){
 			System.out.println("starting connection " + i);
-			RpcEndpoint<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> clientEp = group.createEndpoint();
+			RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp = group.createEndpoint();
 			clientEp.connect(address, 1000);
 			rpcConnections[i] = clientEp;
 			

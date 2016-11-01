@@ -29,7 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import com.ibm.disni.rdma.verbs.*;
 
-public class RpcInstance<R extends RdmaRpcMessage, T extends RdmaRpcMessage> {
+public class RpcInstance<R extends RpcMessage, T extends RpcMessage> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	
 	private RpcCluster<R,T>[] processorArray;

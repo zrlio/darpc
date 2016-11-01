@@ -3,26 +3,28 @@ package com.ibm.darpc.examples.benchmark;
 import java.io.IOException;
 import java.util.concurrent.LinkedBlockingQueue;
 
+import com.ibm.darpc.RpcEndpoint;
 import com.ibm.darpc.RpcServerEvent;
+import com.ibm.darpc.RpcService;
 import com.ibm.darpc.examples.benchmark.RdmaRpcProtocol;
 
-public class RdmaRpcService extends RdmaRpcProtocol implements Runnable {
+public class RdmaRpcService extends RdmaRpcProtocol implements RpcService<RdmaRpcRequest, RdmaRpcResponse>, Runnable {
 	public static boolean PARSE_FILENAME = false;
 	public static boolean THREAD_POOL = false;
 	
-	private LinkedBlockingQueue<RpcServerEvent<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse>> requestQueue;
+	private LinkedBlockingQueue<RpcServerEvent<RdmaRpcRequest, RdmaRpcResponse>> requestQueue;
 	private boolean ready;
 	
 	public RdmaRpcService(){
-		this.requestQueue = new LinkedBlockingQueue<RpcServerEvent<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse>>();
+		this.requestQueue = new LinkedBlockingQueue<RpcServerEvent<RdmaRpcRequest, RdmaRpcResponse>>();
 		this.ready = false;
 		Thread thread = new Thread(this);
 		thread.start();
 	}
 	
-	public void processServerEvent(RpcServerEvent<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> event) throws IOException {
-		RdmaRpcProtocol.RdmaRpcRequest request = event.getReceiveMessage();
-		RdmaRpcProtocol.RdmaRpcResponse response = event.getSendMessage();
+	public void processServerEvent(RpcServerEvent<RdmaRpcRequest, RdmaRpcResponse> event) throws IOException {
+		RdmaRpcRequest request = event.getReceiveMessage();
+		RdmaRpcResponse response = event.getSendMessage();
 //		System.out.println("got rpc request, size " + request.getData().length);
 		if (PARSE_FILENAME){
 			String filename = new String(request.getData());
@@ -51,7 +53,7 @@ public class RdmaRpcService extends RdmaRpcProtocol implements Runnable {
 		System.out.println("starting event processing...");
 		try {
 			while(true){
-				RpcServerEvent<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> event = requestQueue.take();
+				RpcServerEvent<RdmaRpcRequest, RdmaRpcResponse> event = requestQueue.take();
 				synchronized(this){
 //					System.out.println("got event");
 					ready = true;
@@ -61,6 +63,18 @@ public class RdmaRpcService extends RdmaRpcProtocol implements Runnable {
 		} catch(Exception e){
 			System.out.println("exception caught " + e.getMessage());
 		}
+	}
+
+	@Override
+	public void open(RpcEndpoint rpcClientEndpoint) {
+		// TODO Auto-generated method stub
+		
+	}
+
+	@Override
+	public void close(RpcEndpoint rpcClientEndpoint) {
+		// TODO Auto-generated method stub
+		
 	}
 	
 }

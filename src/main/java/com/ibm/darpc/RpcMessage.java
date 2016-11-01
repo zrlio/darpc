@@ -21,38 +21,12 @@
 
 package com.ibm.darpc;
 
-import java.util.concurrent.Future;
+import java.io.IOException;
+import java.nio.ByteBuffer;
 
-public abstract class RpcFuture<R extends RdmaRpcMessage, T extends RdmaRpcMessage> implements Future<T>, RpcEvent<T, R> {
-	protected static int RPC_PENDING = 0;
-	protected static int RPC_DONE = 1;
-	protected static int RPC_ERROR = 2;	
-	
-	private int ticket;
-	private R request;
-	private T response;
+public interface RpcMessage {
+	public int write(ByteBuffer buffer) throws IOException;
+	public void update(ByteBuffer buffer) throws IOException;
+	public int size();	
 
-	public abstract void signal(int status);
-	
-	public RpcFuture(R request, T response){
-		this.request = request;
-		this.response = response;		
-		this.ticket = -1;
-	}
-	
-	public int getTicket() {
-		return this.ticket;
-	}
-	
-	public R getSendMessage(){
-		return request;
-	}
-	
-	public T getReceiveMessage(){
-		return response;
-	}
-	
-	public void stamp(int ticket) {
-		this.ticket = ticket;
-	}
 }

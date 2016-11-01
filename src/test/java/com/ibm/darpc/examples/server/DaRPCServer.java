@@ -24,9 +24,10 @@ package com.ibm.darpc.examples.server;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 
-import com.ibm.darpc.RpcActiveEndpointGroup;
-import com.ibm.darpc.RpcEndpoint;
-import com.ibm.darpc.examples.protocol.RdmaRpcProtocol;
+import com.ibm.darpc.RpcServerEndpoint;
+import com.ibm.darpc.RpcServerGroup;
+import com.ibm.darpc.examples.protocol.RdmaRpcRequest;
+import com.ibm.darpc.examples.protocol.RdmaRpcResponse;
 import com.ibm.disni.rdma.*;
 import com.ibm.disni.util.*;
 
@@ -94,8 +95,8 @@ public class DaRPCServer {
 
 		System.out.println("poolsize " + poolsize + ", affinity size " + clusterAffinities.length);
 		RdmaRpcService rpcService = new RdmaRpcService(servicetimeout);
-		RpcActiveEndpointGroup<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse> group = RpcActiveEndpointGroup.createDefault(rpcService, clusterAffinities, -1, maxinline, polling, rpcpipeline, 4, rpcpipeline);
-		RdmaServerEndpoint<RpcEndpoint<RdmaRpcProtocol.RdmaRpcRequest, RdmaRpcProtocol.RdmaRpcResponse>> serverEp = group.createServerEndpoint();
+		RpcServerGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcServerGroup.createServerGroup(rpcService, clusterAffinities, -1, maxinline, polling, rpcpipeline, 4, rpcpipeline); 
+		RdmaServerEndpoint<RpcServerEndpoint<RdmaRpcRequest, RdmaRpcResponse>> serverEp = group.createServerEndpoint();
 		serverEp.bind(addr, 1000);
 		System.out.println("Opened rdma server at " + addr);
 
@@ -130,8 +131,8 @@ public class DaRPCServer {
 				ipAddress = go.optArgGet();
 			} else if ((char) ch == 's') {
 				int serialized_size = Integer.parseInt(go.optArgGet());
-				RdmaRpcProtocol.RdmaRpcRequest.SERIALIZED_SIZE = serialized_size;
-				RdmaRpcProtocol.RdmaRpcResponse.SERIALIZED_SIZE = serialized_size;
+				RdmaRpcRequest.SERIALIZED_SIZE = serialized_size;
+				RdmaRpcResponse.SERIALIZED_SIZE = serialized_size;
 			} else if ((char) ch == 'p') {
 				poolsize = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 'r') {

@@ -42,7 +42,7 @@ public class RpcResourceManager {
 		}
 	}
 	
-	public void allocateResources(RpcEndpoint<?,?> endpoint) throws Exception {
+	public void allocateResources(RpcServerEndpoint<?,?> endpoint) throws Exception {
 		logger.info("dispatching resource, clusterid " + endpoint.clusterId());
 		allocaters[endpoint.clusterId()].initResource(endpoint);
 	}

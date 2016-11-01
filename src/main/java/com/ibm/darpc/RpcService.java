@@ -22,11 +22,9 @@
 package com.ibm.darpc;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
 
-public interface RdmaRpcMessage {
-	public int write(ByteBuffer buffer) throws IOException;
-	public void update(ByteBuffer buffer) throws IOException;
-	public int size();	
-
+public interface RpcService <R extends RpcMessage, T extends RpcMessage> extends RpcProtocol<R,T> {
+	public void processServerEvent(RpcServerEvent<R,T> event) throws IOException;
+	public void open(RpcEndpoint<R,T> rpcClientEndpoint);
+	public void close(RpcEndpoint<R,T> rpcClientEndpoint);
 }
