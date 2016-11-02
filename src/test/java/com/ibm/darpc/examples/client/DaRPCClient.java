@@ -57,13 +57,13 @@ public class DaRPCClient {
 		private int queryMode;
 		private int rpcpipeline;
 		private int clienttimeout;
+		private ArrayBlockingQueue<RdmaRpcResponse> freeResponses;
 		
 		protected double throughput;
 		protected double latency;
 		protected double readOps;
 		protected double writeOps;
 		protected double errorOps;		
-		private double ops;		
 		
 		public ClientThread(RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp, int loop, InetSocketAddress address, int mode, int rpcpipeline, int clienttimeout){
 			this.clientEp = clientEp;
@@ -71,6 +71,11 @@ public class DaRPCClient {
 			this.queryMode = mode;
 			this.rpcpipeline = rpcpipeline;
 			this.clienttimeout = clienttimeout;
+			this.freeResponses = new ArrayBlockingQueue<RdmaRpcResponse>(rpcpipeline);
+			for (int i = 0; i < rpcpipeline; i++){
+				RdmaRpcResponse response = new RdmaRpcResponse();
+				freeResponses.add(response);
+			}	
 		}
 		
 		@Override
@@ -78,77 +83,59 @@ public class DaRPCClient {
 			try {
 				RpcStream<RdmaRpcRequest, RdmaRpcResponse> stream = clientEp.createStream();
 				RdmaRpcRequest request = new RdmaRpcRequest();
-				ArrayBlockingQueue<RdmaRpcResponse> freeResponses = new ArrayBlockingQueue<RdmaRpcResponse>(rpcpipeline);
-				this.ops = 0.0;	
-				for (int i = 0; i < loop; i++) {
+				boolean streamMode = (queryMode == STREAM_POLL) || (queryMode == STREAM_TAKE) || (queryMode == BATCH_STREAM_TAKE) || (queryMode == BATCH_STREAM_POLL);
+				int issued = 0;
+				int consumed = 0;
+				for (;  issued < loop; issued++) {
+					while(freeResponses.isEmpty()){
+						RpcFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.poll();
+						if (future != null){
+							freeResponses.add(future.getReceiveMessage());						
+							consumed++;
+						}
+					}
+					
+					request.setParam(issued);
 					RdmaRpcResponse response = freeResponses.poll();
-					if (response == null){
-						response = new RdmaRpcResponse();
-					}
-					request.setParam(i);
-					if (response.getName() == request.getParam() + 1){
-						System.out.println("############## wrong RPC response init value!!");
-					}
-					RpcFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.request(request, response, true);
+					RpcFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.request(request, response, streamMode);
 					
 					switch (queryMode) {
 					case FUTURE_POLL:
 						while (!future.isDone()) {
 						}
-						if (future.getReceiveMessage().getName() != future.getSendMessage().getParam() + 1){
-							System.out.println("############## wrong RPC return value!!");
-						}
+						consumed++;
+//						System.out.println("i " + issued + ", response " + future.getReceiveMessage().toString());
 						freeResponses.add(future.getReceiveMessage());
-						stream.clear();
 						break;
 					case STREAM_POLL:
 						future = stream.poll();
 						while (future == null) {
 							future = stream.poll();
 						}
+						consumed++;
 						freeResponses.add(future.getReceiveMessage());
-						stream.clear();
 						break;		
 					case FUTURE_TAKE:
-						if (future.get(clienttimeout, TimeUnit.MILLISECONDS) != null){
-							freeResponses.add(future.getReceiveMessage());
-						} else {
-							System.out.println("invalid value");
-						}
-						stream.clear();
+						future.get(clienttimeout, TimeUnit.MILLISECONDS);
+						consumed++;
+						freeResponses.add(future.getReceiveMessage());
 						break;						
 					case STREAM_TAKE:
 						future = stream.take(clienttimeout);
-						if (future != null){
-							freeResponses.add(future.getReceiveMessage());
-						} 
-						stream.clear();
+						consumed++;
+						freeResponses.add(future.getReceiveMessage());
 						break;
 					case BATCH_STREAM_TAKE:
-						if ((i > 0) && ((i % rpcpipeline) == 0)) {
-							for (int j = 1; j <= rpcpipeline; j++) {
-								future = stream.take();
-								System.out.println("i " + i + ", response " + future.getReceiveMessage().toString());
-								freeResponses.add(future.getReceiveMessage());
-							}
-							stream.clear();
-						}
 						break;
 					case BATCH_STREAM_POLL:
-						if ((i > 0) && ((i % rpcpipeline) == 0)) {
-							for (int j = 1; j <= rpcpipeline; j++) {
-								future = stream.poll();
-								while (future == null){
-									future = stream.poll();
-								}
-								System.out.println("i " + i + ", response " + future.getReceiveMessage().toString());
-								freeResponses.add(future.getReceiveMessage());
-							}
-							stream.clear();
-						}
 						break;						
 					}
-					ops += 1.0;
+				}
+				while (consumed < issued){
+					RpcFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.take();
+//					System.out.println("response " + future.getReceiveMessage().toString());
+					consumed++;
+					freeResponses.add(future.getReceiveMessage());
 				}
 			} catch(Exception e){
 				e.printStackTrace();
@@ -180,7 +167,7 @@ public class DaRPCClient {
 		}	
 		
 		public double getOps(){
-			return ops;
+			return loop;
 		}		
 	}
 	
@@ -259,7 +246,7 @@ public class DaRPCClient {
 		InetAddress localHost = InetAddress.getByName(ipAddress);
 		InetSocketAddress address = new InetSocketAddress(localHost, 1919);		
 		RdmaRpcProtocol rpcProtocol = new RdmaRpcProtocol();
-		System.out.println("starting.. threads " + threadCount + ", connections " + connections + ", server " + ipAddress + ", maxinline " + maxinline + ", rpcpipeline " + rpcpipeline);
+		System.out.println("starting.. threads " + threadCount + ", connections " + connections + ", server " + ipAddress + ", maxinline " + maxinline + ", rpcpipeline " + rpcpipeline + ", mode " + mode);
 		RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcClientGroup.createClientGroup(rpcProtocol, 100, maxinline, rpcpipeline);
 		
 		int k = 0;

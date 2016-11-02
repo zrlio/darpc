@@ -68,4 +68,8 @@ public class RpcStream<R extends RpcMessage,T extends RpcMessage> {
 	void addFuture(RpcFuture<R, T> future){
 		completedList.add(future);
 	}
+
+	public boolean isEmpty() {
+		return completedList.isEmpty();
+	}
 }
