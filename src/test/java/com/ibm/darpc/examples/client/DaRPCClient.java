@@ -29,6 +29,9 @@ import java.nio.channels.FileChannel;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.ibm.darpc.RpcClientEndpoint;
 import com.ibm.darpc.RpcClientGroup;
 import com.ibm.darpc.RpcEndpoint;
@@ -40,6 +43,8 @@ import com.ibm.darpc.examples.protocol.RdmaRpcResponse;
 import com.ibm.disni.util.*;
 
 public class DaRPCClient {
+	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
+	
 	public static enum BenchmarkType {
 		UNDEFINED
 	};	
@@ -76,13 +81,12 @@ public class DaRPCClient {
 		@Override
 		public void run() {
 			try {
-				System.out.println("starting3, eid " + clientEp.getEndpointId() + ", mode2 " + queryMode + ", rpcpipeline " + rpcpipeline);
+				System.out.println("starting, eid " + clientEp.getEndpointId() + ", mode " + queryMode + ", rpcpipeline " + rpcpipeline);
 				RpcStream<RdmaRpcRequest, RdmaRpcResponse> stream = clientEp.createStream();
 				RdmaRpcRequest request = new RdmaRpcRequest();
 				ArrayBlockingQueue<RdmaRpcResponse> freeResponses = new ArrayBlockingQueue<RdmaRpcResponse>(rpcpipeline);
 				this.ops = 0.0;	
-				int k = 1;
-				for (int i = 1; i <= loop; i++) {
+				for (int i = 0; i < loop; i++) {
 					RdmaRpcResponse response = freeResponses.poll();
 					if (response == null){
 						response = new RdmaRpcResponse();
@@ -91,6 +95,7 @@ public class DaRPCClient {
 					if (response.getName() == request.getParam() + 1){
 						System.out.println("############## wrong RPC response init value!!");
 					}
+					logger.info("request " + request.getParam());
 					RpcFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.request(request, response, true);
 					
 					switch (queryMode) {
@@ -100,6 +105,7 @@ public class DaRPCClient {
 //						if (future.getReceiveMessage().getName() != future.getSendMessage().getParam() + 1){
 //							System.out.println("############## wrong RPC return value!!");
 //						}
+						logger.info("reponse " + future.getReceiveMessage().getName());
 						freeResponses.add(future.getReceiveMessage());
 						stream.clear();
 						break;
@@ -130,9 +136,8 @@ public class DaRPCClient {
 						if ((i > 0) && ((i % rpcpipeline) == 0)) {
 							for (int j = 1; j <= rpcpipeline; j++) {
 								future = stream.take();
-								System.out.println("i " + i + ", k " + k + ", response " + future.getReceiveMessage().toString());
+								System.out.println("i " + i + ", response " + future.getReceiveMessage().toString());
 								freeResponses.add(future.getReceiveMessage());
-								k++;
 							}
 							stream.clear();
 						}
@@ -144,9 +149,8 @@ public class DaRPCClient {
 								while (future == null){
 									future = stream.poll();
 								}
-								System.out.println("i " + i + ", k " + k + ", response " + future.getReceiveMessage().toString());
+								System.out.println("i " + i + ", response " + future.getReceiveMessage().toString());
 								freeResponses.add(future.getReceiveMessage());
-								k++;
 							}
 							stream.clear();
 						}
@@ -214,9 +218,6 @@ public class DaRPCClient {
 		go.optErr = true;
 		int ch = -1;
 		
-		System.setProperty("com.ibm.jverbs.provider", "nat");
-		System.setProperty("com.ibm.jverbs.driver", "siw");
-
 		while ((ch = go.getopt()) != GetOpt.optEOF) {
 			if ((char) ch == 'a') {
 				ipAddress = go.optArgGet();
@@ -278,7 +279,7 @@ public class DaRPCClient {
 			long _clusterAffinities[] = { 1L << 1 | 1L << 17 };
 			clusterAffinities = _clusterAffinities;
 		}	
-		System.out.println("poolsize " + poolsize + ", affinity size " + clusterAffinities.length);
+		logger.info("poolsize " + poolsize + ", affinity size " + clusterAffinities.length);
 		
 		if ((threadCount % connections) != 0){
 			throw new Exception("thread count needs to be a multiple of connections");
@@ -287,9 +288,9 @@ public class DaRPCClient {
 		int threadsperconnection = threadCount / connections;
 		
 		RpcEndpoint<?,?>[] rpcConnections = new RpcEndpoint[connections];
-		System.out.println("connections " + rpcConnections.length);
+		logger.info("connections " + rpcConnections.length);
 		Thread[] workers = new Thread[threadCount];
-		System.out.println("total threads " + workers.length);
+		logger.info("total threads " + workers.length);
 		ClientThread[] benchmarkTask = new ClientThread[threadCount];
 		
 		InetAddress localHost = InetAddress.getByName(ipAddress);
@@ -299,13 +300,13 @@ public class DaRPCClient {
 		
 		int k = 0;
 		for (int i = 0; i < rpcConnections.length; i++){
-			System.out.println("starting connection " + i);
+			logger.info("starting connection " + i);
 			RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp = group.createEndpoint();
 			clientEp.connect(address, 1000);
 			rpcConnections[i] = clientEp;
 			
 			for (int j = 0; j < threadsperconnection; j++){
-				System.out.println("starting thread " + j);
+				logger.info("starting thread " + j);
 				benchmarkTask[k] = new ClientThread(clientEp, loop, address, mode, rpcpipeline, clienttimeout);
 				k++;
 			}
@@ -319,15 +320,15 @@ public class DaRPCClient {
 		}
 		for(int i = 0; i < threadCount;i++){
 			workers[i].join();
-			System.out.println("finished joining worker " + i);
+			logger.info("finished joining worker " + i);
 		}
 		double executionTime = (double) stopWatchThroughput.getExecutionTime() / 1000.0;
-		System.out.println("executionTime " + executionTime);
+		logger.info("executionTime " + executionTime);
 		double ops = 0;
 		for (int i = 0; i < threadCount; i++) {
 			ops += benchmarkTask[i].getOps();
 		}
-		System.out.println("ops " + ops);
+		logger.info("ops " + ops);
 		double throughput = 0.0;
 		double latency = 0.0;
 		if (executionTime > 0) {
@@ -351,9 +352,7 @@ public class DaRPCClient {
 				+ 0 + "\t\t" + latency
 				+ "\n";
 		ByteBuffer buffer = ByteBuffer.wrap(logdata.getBytes());
-		System.out.println("writing data file for workers ");
 		dataChannel.write(buffer);
-		System.out.println("closing channel");
 		dataChannel.close();		
 		dataStream.close();
 		
@@ -361,8 +360,6 @@ public class DaRPCClient {
 			rpcConnections[i].close();
 		}
 		group.close();
-		
-		System.out.println("done");
 	}
 	
 	public static void main(String[] args) throws Exception { 

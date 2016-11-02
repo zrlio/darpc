@@ -33,8 +33,6 @@ public class RpcServerEndpoint<R extends RpcMessage, T extends RpcMessage> exten
 			this.eventPool.add(event);
 			
 		}
-		RpcServerEvent<R,T> event = new RpcServerEvent<R,T>(this, group.createRequest(), group.createResponse());
-		this.eventPool.add(event);		
 	}
 	
 	void sendResponse(RpcServerEvent<R,T> event) throws IOException {
@@ -49,8 +47,11 @@ public class RpcServerEndpoint<R extends RpcMessage, T extends RpcMessage> exten
 		super.dispatchCmEvent(cmEvent);
 		try {
 			int eventType = cmEvent.getEvent();
-			if (eventType == RdmaCmEvent.EventType.RDMA_CM_EVENT_DISCONNECTED.ordinal()) {
-				logger.info("got disconnect event, dst " + this.getDstAddr() + ", src " + this.getSrcAddr());
+			if (eventType == RdmaCmEvent.EventType.RDMA_CM_EVENT_ESTABLISHED.ordinal()) {
+				logger.info("new RPC connection, eid " + this.getEndpointId());
+				group.open(this);
+			} else if (eventType == RdmaCmEvent.EventType.RDMA_CM_EVENT_DISCONNECTED.ordinal()) {
+				logger.info("RPC disconnection, eid " + this.getEndpointId());
 				group.close(this);
 			} 
 		} catch (Exception e) {

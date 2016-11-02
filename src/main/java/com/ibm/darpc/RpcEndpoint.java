@@ -92,11 +92,11 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 	
 	@Override
 	public synchronized void close() throws IOException, InterruptedException {
+		super.close();
 		for(int i = 0; i < pipelineLength; i++){
 			deregisterMemory(recvMRs[i]);
 			deregisterMemory(sendMRs[i]);
 		}
-		super.close();
 	}	
 	
 	public long getMessagesSent() {
@@ -143,9 +143,10 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 	
 	public void dispatchCqEvent(IbvWC wc) throws IOException {
 		if (wc.getStatus() == 5){
-//			logger.info("flush wc");
+			//flush
+			return;
 		} else if (wc.getStatus() != 0){
-			logger.info("faulty request, status " + wc.getStatus());
+			throw new IOException("Faulty operation! wc.status " + wc.getStatus());
 		} 	
 		
 		if (wc.getOpcode() == 128){

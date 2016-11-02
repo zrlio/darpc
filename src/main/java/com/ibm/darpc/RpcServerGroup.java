@@ -27,7 +27,7 @@ public class RpcServerGroup<R extends RpcMessage, T extends RpcMessage> extends 
 	
 	public static <R extends RpcMessage, T extends RpcMessage> RpcServerGroup<R, T> createServerGroup(RpcService<R, T> rpcService, long[] clusterAffinities, int timeout, int maxinline, boolean polling, int rpcpipeline, int maxSge, int cqSize) throws Exception {
 		RpcServerGroup<R,T> group = new RpcServerGroup<R,T>(rpcService, clusterAffinities, timeout, maxinline, polling, rpcpipeline, maxSge, cqSize);
-		group.init(null);
+		group.init(new RpcServerFactory<R,T>(group));
 		return group;
 	}
 
@@ -46,14 +46,26 @@ public class RpcServerGroup<R extends RpcMessage, T extends RpcMessage> extends 
 	
 	public RdmaCqProvider createCqProvider(RpcServerEndpoint<R,T> endpoint) throws IOException {
 		logger.info("setting up cq processor (multicore)");
-		return createCqProcessor(endpoint);
+		IbvContext context = endpoint.getIdPriv().getVerbs();
+		if (context == null) {
+			throw new IOException("setting up cq processor, no context found");
+		}
+		RpcInstance<R,T> rpcInstance = null;
+		int key = context.getCmd_fd();
+		if (!deviceInstance.containsKey(key)) {
+			rpcInstance = new RpcInstance<R,T>(context, this.getCqSize(), this.getRpcpipeline(), computeAffinities, this.getTimeout(), polling);
+			deviceInstance.put(context.getCmd_fd(), rpcInstance);
+		}
+		rpcInstance = deviceInstance.get(context.getCmd_fd());
+		RpcCluster<R,T> cqProcessor = rpcInstance.getProcessor(endpoint.clusterId());
+		return cqProcessor;
 	}	
 	
 	public IbvQP createQpProvider(RpcServerEndpoint<R,T> endpoint) throws IOException{
+		logger.info("setting up QP");
 		RpcCluster<R,T>  cqProcessor = this.lookupCqProcessor(endpoint);
 		IbvCQ cq = cqProcessor.getCQ();
 		IbvQP qp = this.createQP(endpoint.getIdPriv(), endpoint.getPd(), cq);	
-		logger.info("registering endpoint with cq");
 		cqProcessor.registerQP(qp.getQp_num(), endpoint);
 		return qp;
 	}		
@@ -68,31 +80,11 @@ public class RpcServerGroup<R extends RpcMessage, T extends RpcMessage> extends 
 		return newClusterId;
 	}
 	
-	protected synchronized RpcCluster<R,T> createCqProcessor(RpcServerEndpoint<R,T> endpoint) throws IOException{
-		IbvContext context = endpoint.getIdPriv().getVerbs();
-		if (context == null) {
-			throw new IOException("setting up cq processor, no context found");
-		}
-		
-		logger.info("setting up cq pool, context found");
-		RpcInstance<R,T> rpcInstance = null;
-		int key = context.getCmd_fd();
-		if (!deviceInstance.containsKey(key)) {
-			rpcInstance = new RpcInstance<R,T>(context, this.getCqSize(), this.getRpcpipeline(), computeAffinities, this.getTimeout(), polling);
-			deviceInstance.put(context.getCmd_fd(), rpcInstance);
-		}
-		rpcInstance = deviceInstance.get(context.getCmd_fd());
-		RpcCluster<R,T> cqProcessor = rpcInstance.getProcessor(endpoint.clusterId());
-		return cqProcessor;
-	}
-	
 	protected synchronized RpcCluster<R,T> lookupCqProcessor(RpcServerEndpoint<R,T> endpoint) throws IOException{
 		IbvContext context = endpoint.getIdPriv().getVerbs();
 		if (context == null) {
 			throw new IOException("setting up cq processor, no context found");
 		}
-		
-//		logger.info("setting up cq pool, context found");
 		RpcInstance<R,T> rpcInstance = null;
 		int key = context.getCmd_fd();
 		if (!deviceInstance.containsKey(key)) {
@@ -124,6 +116,10 @@ public class RpcServerGroup<R extends RpcMessage, T extends RpcMessage> extends 
 	public void processServerEvent(RpcServerEvent<R,T> event) throws IOException {
 		rpcService.processServerEvent(event);
 	}
+	
+	public void open(RpcServerEndpoint<R,T> endpoint){
+		rpcService.open(endpoint);
+	}	
 	
 	public void close(RpcServerEndpoint<R,T> endpoint){
 		rpcService.close(endpoint);

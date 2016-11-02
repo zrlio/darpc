@@ -22,6 +22,10 @@
 package com.ibm.darpc.examples.server;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicInteger;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.ibm.darpc.RpcEndpoint;
 import com.ibm.darpc.RpcServerEvent;
@@ -31,11 +35,13 @@ import com.ibm.darpc.examples.protocol.RdmaRpcRequest;
 import com.ibm.darpc.examples.protocol.RdmaRpcResponse;
 
 public class RdmaRpcService extends RdmaRpcProtocol implements RpcService<RdmaRpcRequest, RdmaRpcResponse> {
+	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
+	
 	private int servicetimeout;
 	
 	public RdmaRpcService(int servicetimeout){
 		this.servicetimeout = servicetimeout;
-		System.out.println("RpcService with timeout " + servicetimeout);
+		logger.info("RpcService with timeout " + servicetimeout);
 	}
 	
 	public void processServerEvent(RpcServerEvent<RdmaRpcRequest, RdmaRpcResponse> event) throws IOException {
@@ -49,14 +55,17 @@ public class RdmaRpcService extends RdmaRpcProtocol implements RpcService<RdmaRp
 				e.printStackTrace();
 			}
 		}
+		logger.info("rpc service, param " + event.getReceiveMessage().getParam());
 		event.triggerResponse();
 	}
 
 	@Override
-	public void open(RpcEndpoint<RdmaRpcRequest, RdmaRpcResponse> rpcClientEndpoint) {
+	public void open(RpcEndpoint<RdmaRpcRequest, RdmaRpcResponse> endpoint) {
+		logger.info("new connection " + endpoint.getEndpointId());
 	}
 
 	@Override
-	public void close(RpcEndpoint<RdmaRpcRequest, RdmaRpcResponse> rpcClientEndpoint) {
+	public void close(RpcEndpoint<RdmaRpcRequest, RdmaRpcResponse> endpoint) {
+		logger.info("disconnecting " + endpoint.getEndpointId());
 	}
 }

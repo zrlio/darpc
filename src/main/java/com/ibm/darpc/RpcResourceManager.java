@@ -90,8 +90,8 @@ public class RpcResourceManager {
 				try {
 					RpcEndpoint<?,?> endpoint = requestQueue.poll(timeout, TimeUnit.MILLISECONDS);
 					if (endpoint != null){
-						endpoint.allocateResources();
 						logger.info("allocating resources, cluster " + index + ", endpoint " + endpoint.getEndpointId());
+						endpoint.allocateResources();
 					}
 				} catch(Exception e){
 					e.printStackTrace();
