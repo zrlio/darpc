@@ -25,6 +25,6 @@ import java.io.IOException;
 
 public interface RpcService <R extends RpcMessage, T extends RpcMessage> extends RpcProtocol<R,T> {
 	public void processServerEvent(RpcServerEvent<R,T> event) throws IOException;
-	public void open(RpcEndpoint<R,T> rpcClientEndpoint);
-	public void close(RpcEndpoint<R,T> rpcClientEndpoint);
+	public void open(RpcServerEndpoint<R,T> rpcClientEndpoint);
+	public void close(RpcServerEndpoint<R,T> rpcClientEndpoint);
 }

@@ -29,9 +29,6 @@ import java.nio.channels.FileChannel;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import com.ibm.darpc.RpcClientEndpoint;
 import com.ibm.darpc.RpcClientGroup;
 import com.ibm.darpc.RpcEndpoint;
@@ -43,8 +40,6 @@ import com.ibm.darpc.examples.protocol.RdmaRpcResponse;
 import com.ibm.disni.util.*;
 
 public class DaRPCClient {
-	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
-	
 	public static enum BenchmarkType {
 		UNDEFINED
 	};	
@@ -81,7 +76,6 @@ public class DaRPCClient {
 		@Override
 		public void run() {
 			try {
-				System.out.println("starting, eid " + clientEp.getEndpointId() + ", mode " + queryMode + ", rpcpipeline " + rpcpipeline);
 				RpcStream<RdmaRpcRequest, RdmaRpcResponse> stream = clientEp.createStream();
 				RdmaRpcRequest request = new RdmaRpcRequest();
 				ArrayBlockingQueue<RdmaRpcResponse> freeResponses = new ArrayBlockingQueue<RdmaRpcResponse>(rpcpipeline);
@@ -95,17 +89,15 @@ public class DaRPCClient {
 					if (response.getName() == request.getParam() + 1){
 						System.out.println("############## wrong RPC response init value!!");
 					}
-					logger.info("request " + request.getParam());
 					RpcFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.request(request, response, true);
 					
 					switch (queryMode) {
 					case FUTURE_POLL:
 						while (!future.isDone()) {
 						}
-//						if (future.getReceiveMessage().getName() != future.getSendMessage().getParam() + 1){
-//							System.out.println("############## wrong RPC return value!!");
-//						}
-						logger.info("reponse " + future.getReceiveMessage().getName());
+						if (future.getReceiveMessage().getName() != future.getSendMessage().getParam() + 1){
+							System.out.println("############## wrong RPC return value!!");
+						}
 						freeResponses.add(future.getReceiveMessage());
 						stream.clear();
 						break;
@@ -199,7 +191,6 @@ public class DaRPCClient {
 		int threadCount = 1;
 		int mode = ClientThread.FUTURE_POLL;
 		int rpcpipeline = 100;
-		int poolsize = 3;
 		int connections = 1;
 		int clienttimeout = 3000;
 		int maxinline = 0;
@@ -214,7 +205,7 @@ public class DaRPCClient {
 			}
 		}
 
-		GetOpt go = new GetOpt(_args, "a:s:k:n:m:hr:p:c:t:i:");
+		GetOpt go = new GetOpt(_args, "a:s:k:n:m:hr:c:t:i:");
 		go.optErr = true;
 		int ch = -1;
 		
@@ -246,8 +237,6 @@ public class DaRPCClient {
 				}
 			} else if ((char) ch == 'r') {
 				rpcpipeline = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'p') {
-				poolsize = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 'c') {
 				connections = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 't') {
@@ -258,55 +247,27 @@ public class DaRPCClient {
 				System.exit(1); // undefined option
 			}
 		}	
-		
-		long[] clusterAffinities;
-		if (poolsize == 1){
-			long _clusterAffinities[] = { 1L << 1 | 1L << 17};
-			clusterAffinities = _clusterAffinities;
-		} else if (poolsize == 2){
-			long _clusterAffinities[] = { 1L << 1 | 1L << 17, 1L << 2 | 1L << 18, 1L << 3 | 1L << 19, 1L << 4 | 1L << 20};
-			clusterAffinities = _clusterAffinities;
-		} else if (poolsize == 3){
-			long _clusterAffinities[] = { 1L << 9 | 1L << 25, 1L << 10 | 1L << 26, 1L << 11 | 1L << 27, 1L << 12 | 1L << 28};
-			clusterAffinities = _clusterAffinities;
-		} else if (poolsize == 4){
-			long _clusterAffinities[] = {1L << 1 | 1L << 17, 1L << 2 | 1L << 18, 1L << 3 | 1L << 19, 1L << 4 | 1L << 20, 1L << 9 | 1L << 25, 1L << 10 | 1L << 26, 1L << 11 | 1L << 27, 1L << 12 | 1L << 28};
-			clusterAffinities = _clusterAffinities;
-		} else if (poolsize == 5){
-			long _clusterAffinities[] = { 1L << 1 | 1L << 17, 1L << 2 | 1L << 18, 1L << 3 | 1L << 19, 1L << 4 | 1L << 20};
-			clusterAffinities = _clusterAffinities;
-		} else {
-			long _clusterAffinities[] = { 1L << 1 | 1L << 17 };
-			clusterAffinities = _clusterAffinities;
-		}	
-		logger.info("poolsize " + poolsize + ", affinity size " + clusterAffinities.length);
-		
 		if ((threadCount % connections) != 0){
 			throw new Exception("thread count needs to be a multiple of connections");
 		}
 		
 		int threadsperconnection = threadCount / connections;
-		
 		RpcEndpoint<?,?>[] rpcConnections = new RpcEndpoint[connections];
-		logger.info("connections " + rpcConnections.length);
 		Thread[] workers = new Thread[threadCount];
-		logger.info("total threads " + workers.length);
 		ClientThread[] benchmarkTask = new ClientThread[threadCount];
 		
 		InetAddress localHost = InetAddress.getByName(ipAddress);
 		InetSocketAddress address = new InetSocketAddress(localHost, 1919);		
 		RdmaRpcProtocol rpcProtocol = new RdmaRpcProtocol();
-		RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcClientGroup.createClientGroup(rpcProtocol, 100, maxinline, rpcpipeline, 4, rpcpipeline);
+		System.out.println("starting.. threads " + threadCount + ", connections " + connections + ", server " + ipAddress + ", maxinline " + maxinline + ", rpcpipeline " + rpcpipeline);
+		RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcClientGroup.createClientGroup(rpcProtocol, 100, maxinline, rpcpipeline);
 		
 		int k = 0;
 		for (int i = 0; i < rpcConnections.length; i++){
-			logger.info("starting connection " + i);
 			RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp = group.createEndpoint();
 			clientEp.connect(address, 1000);
 			rpcConnections[i] = clientEp;
-			
 			for (int j = 0; j < threadsperconnection; j++){
-				logger.info("starting thread " + j);
 				benchmarkTask[k] = new ClientThread(clientEp, loop, address, mode, rpcpipeline, clienttimeout);
 				k++;
 			}
@@ -320,15 +281,15 @@ public class DaRPCClient {
 		}
 		for(int i = 0; i < threadCount;i++){
 			workers[i].join();
-			logger.info("finished joining worker " + i);
+			System.out.println("finished joining worker " + i);
 		}
 		double executionTime = (double) stopWatchThroughput.getExecutionTime() / 1000.0;
-		logger.info("executionTime " + executionTime);
+		System.out.println("executionTime " + executionTime);
 		double ops = 0;
 		for (int i = 0; i < threadCount; i++) {
 			ops += benchmarkTask[i].getOps();
 		}
-		logger.info("ops " + ops);
+		System.out.println("ops " + ops);
 		double throughput = 0.0;
 		double latency = 0.0;
 		if (executionTime > 0) {
@@ -337,7 +298,8 @@ public class DaRPCClient {
 			double throughputperclient = throughput / _threadcount;
 			double norm = 1.0;
 			latency = norm / throughputperclient * 1000000.0;
-		}		
+		}	
+		System.out.println("throughput " + throughput);
 
 		String dataFilename = "datalog-client.dat";
 		FileOutputStream dataStream = new FileOutputStream(dataFilename, true);

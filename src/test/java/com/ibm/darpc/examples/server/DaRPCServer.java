@@ -35,12 +35,13 @@ public class DaRPCServer {
 	private String ipAddress; 
 	private int poolsize = 3;
 	private int rpcpipeline = 100;
+	private int wrSize = rpcpipeline;
 	private int servicetimeout = 0;
 	private boolean polling = false;
 	private int maxinline = 0;
+	private int connections = 16;
 	
 	public void run() throws Exception{
-		System.out.println("RpcServer::run: serverIP=" + ipAddress + ", poolsize " + poolsize);
 		InetAddress localHost = InetAddress.getByName(ipAddress);
 		InetSocketAddress addr = new InetSocketAddress(localHost, 1919);	
 		
@@ -93,13 +94,11 @@ public class DaRPCServer {
 			clusterAffinities = _clusterAffinities;
 		}		
 
-		System.out.println("poolsize " + poolsize + ", affinity size " + clusterAffinities.length);
+		System.out.println("running...server " + ipAddress + ", poolsize " + poolsize + ", maxinline " + maxinline + ", polling " + polling + ", rpcpipeline " + rpcpipeline + ", cqSize " + rpcpipeline*connections*2 + ", wrSize " + wrSize + ", rpcservice-timeout " + servicetimeout);
 		RdmaRpcService rpcService = new RdmaRpcService(servicetimeout);
-		RpcServerGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcServerGroup.createServerGroup(rpcService, clusterAffinities, -1, maxinline, polling, rpcpipeline, 4, rpcpipeline); 
+		RpcServerGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcServerGroup.createServerGroup(rpcService, clusterAffinities, -1, maxinline, polling, rpcpipeline, rpcpipeline*connections*2, wrSize); 
 		RdmaServerEndpoint<RpcServerEndpoint<RdmaRpcRequest, RdmaRpcResponse>> serverEp = group.createServerEndpoint();
 		serverEp.bind(addr, 1000);
-		System.out.println("Opened rdma server at " + addr);
-
 		while(true){
 			serverEp.accept();
 		}		
@@ -116,12 +115,9 @@ public class DaRPCServer {
 			}
 		}
 
-		GetOpt go = new GetOpt(_args, "a:s:r:p:di:");
+		GetOpt go = new GetOpt(_args, "a:s:r:p:di:c:w:");
 		go.optErr = true;
 		int ch = -1;
-
-		System.setProperty("com.ibm.jverbs.provider", "nat");
-		System.setProperty("com.ibm.jverbs.driver", "siw");
 
 		while ((ch = go.getopt()) != GetOpt.optEOF) {
 			if ((char) ch == 'a') {
@@ -140,6 +136,10 @@ public class DaRPCServer {
 				polling = true;
 			} else if ((char) ch == 'i') {
 				maxinline = Integer.parseInt(go.optArgGet());
+			} else if ((char) ch == 'c') {
+				connections = Integer.parseInt(go.optArgGet());
+			} else if ((char) ch == 'w') {
+				wrSize = Integer.parseInt(go.optArgGet());
 			} else {
 				System.exit(1); // undefined option
 			}

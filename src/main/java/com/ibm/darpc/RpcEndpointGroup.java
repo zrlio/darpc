@@ -35,7 +35,6 @@ public abstract class RpcEndpointGroup<E extends RpcEndpoint<R,T>, R extends Rpc
 	
 	private int cqSize;
 	private int rpcpipeline;
-	private int maxSge;
 	private int timeout;
 	private int bufferSize;
 	private int maxInline;
@@ -44,22 +43,20 @@ public abstract class RpcEndpointGroup<E extends RpcEndpoint<R,T>, R extends Rpc
 		return DARPC_VERSION;
 	}	
 	
-	protected RpcEndpointGroup(RpcProtocol<R,T> protocol, int timeout, int maxinline, int rpcpipeline, int maxSge, int cqSize) throws Exception {
+	protected RpcEndpointGroup(RpcProtocol<R,T> protocol, int timeout, int maxinline, int rpcpipeline, int cqSize) throws Exception {
 		super(timeout);
 		this.timeout = timeout;
 		this.bufferSize = Math.max(protocol.createRequest().size(), protocol.createResponse().size());
 		this.rpcpipeline = rpcpipeline;
-		this.maxSge = maxSge;
 		this.cqSize = cqSize;
 		this.maxInline = maxinline;
-//		logger.info("rpc group, rpcpipeline " + rpcpipeline + ", effictive poolsize " + computeAffinities.length + ", maxinline " + maxInline + ", version 1");
 	}	
 	
 	protected synchronized IbvQP createQP(RdmaCmId id, IbvPd pd, IbvCQ cq) throws IOException{
 		IbvQPInitAttr attr = new IbvQPInitAttr();
-		attr.cap().setMax_recv_sge(maxSge);
+		attr.cap().setMax_recv_sge(1);
 		attr.cap().setMax_recv_wr(rpcpipeline);
-		attr.cap().setMax_send_sge(maxSge);
+		attr.cap().setMax_send_sge(1);
 		attr.cap().setMax_send_wr(rpcpipeline);
 		attr.cap().setMax_inline_data(maxInline);
 		attr.setQp_type(IbvQP.IBV_QPT_RC);
@@ -92,9 +89,5 @@ public abstract class RpcEndpointGroup<E extends RpcEndpoint<R,T>, R extends Rpc
 
 	public int getCqSize() {
 		return cqSize;
-	}
-
-	public int getMaxSge() {
-		return maxSge;
 	}
 }
