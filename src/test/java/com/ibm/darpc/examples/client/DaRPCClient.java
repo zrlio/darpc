@@ -55,7 +55,6 @@ public class DaRPCClient {
 		private RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp;
 		private int loop;
 		private int queryMode;
-		private int rpcpipeline;
 		private int clienttimeout;
 		private ArrayBlockingQueue<RdmaRpcResponse> freeResponses;
 		
@@ -69,7 +68,6 @@ public class DaRPCClient {
 			this.clientEp = clientEp;
 			this.loop = loop;
 			this.queryMode = mode;
-			this.rpcpipeline = rpcpipeline;
 			this.clienttimeout = clienttimeout;
 			this.freeResponses = new ArrayBlockingQueue<RdmaRpcResponse>(rpcpipeline);
 			for (int i = 0; i < rpcpipeline; i++){
@@ -177,10 +175,11 @@ public class DaRPCClient {
 		int loop = 100;
 		int threadCount = 1;
 		int mode = ClientThread.FUTURE_POLL;
-		int rpcpipeline = 100;
+		int rpcpipeline = 16;
 		int connections = 1;
 		int clienttimeout = 3000;
 		int maxinline = 0;
+		int queueSize = rpcpipeline;
 
 		String[] _args = args;
 		if (args.length < 1) {
@@ -192,7 +191,7 @@ public class DaRPCClient {
 			}
 		}
 
-		GetOpt go = new GetOpt(_args, "a:s:k:n:m:hr:c:t:i:");
+		GetOpt go = new GetOpt(_args, "a:s:k:n:m:hr:c:t:i:q:");
 		go.optErr = true;
 		int ch = -1;
 		
@@ -230,6 +229,8 @@ public class DaRPCClient {
 				clienttimeout = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 'i') {
 				maxinline = Integer.parseInt(go.optArgGet());
+			} else if ((char) ch == 'q') {
+				queueSize = Integer.parseInt(go.optArgGet());
 			} else {
 				System.exit(1); // undefined option
 			}
@@ -246,8 +247,8 @@ public class DaRPCClient {
 		InetAddress localHost = InetAddress.getByName(ipAddress);
 		InetSocketAddress address = new InetSocketAddress(localHost, 1919);		
 		RdmaRpcProtocol rpcProtocol = new RdmaRpcProtocol();
-		System.out.println("starting.. threads " + threadCount + ", connections " + connections + ", server " + ipAddress + ", maxinline " + maxinline + ", rpcpipeline " + rpcpipeline + ", mode " + mode);
-		RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcClientGroup.createClientGroup(rpcProtocol, 100, maxinline, rpcpipeline);
+		System.out.println("starting.. threads " + threadCount + ", connections " + connections + ", server " + ipAddress + ", queueSize " + queueSize + ", rpcpipeline " + rpcpipeline + ", mode " + mode);
+		RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcClientGroup.createClientGroup(rpcProtocol, 100, maxinline, queueSize);
 		
 		int k = 0;
 		for (int i = 0; i < rpcConnections.length; i++){

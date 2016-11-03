@@ -34,8 +34,8 @@ import com.ibm.disni.util.*;
 public class DaRPCServer {
 	private String ipAddress; 
 	private int poolsize = 3;
-	private int rpcpipeline = 100;
-	private int wrSize = rpcpipeline;
+	private int queueSize = 16;
+	private int wqSize = queueSize;
 	private int servicetimeout = 0;
 	private boolean polling = false;
 	private int maxinline = 0;
@@ -45,58 +45,14 @@ public class DaRPCServer {
 		InetAddress localHost = InetAddress.getByName(ipAddress);
 		InetSocketAddress addr = new InetSocketAddress(localHost, 1919);	
 		
-		long[] clusterAffinities;
-		if (poolsize == 1){
-			long _clusterAffinities[] = { 1L << 1 | 1L << 17};
-			clusterAffinities = _clusterAffinities;
-		} else if (poolsize == 2){
-			long _clusterAffinities[] = { 1L << 1 | 1L << 17, 1L << 2 | 1L << 18, 1L << 3 | 1L << 19, 1L << 4 | 1L << 20};
-			clusterAffinities = _clusterAffinities;
-		} else if (poolsize == 3){
-			long _clusterAffinities[] = { 1L << 9 | 1L << 25, 1L << 10 | 1L << 26, 1L << 11 | 1L << 27, 1L << 12 | 1L << 28};
-			clusterAffinities = _clusterAffinities;
-		} else if (poolsize == 4){
-			long _clusterAffinities[] = {1L << 1 | 1L << 17, 1L << 2 | 1L << 18, 1L << 3 | 1L << 19, 1L << 4 | 1L << 20, 1L << 9 | 1L << 25, 1L << 10 | 1L << 26, 1L << 11 | 1L << 27, 1L << 12 | 1L << 28};
-			clusterAffinities = _clusterAffinities;
-		} else if (poolsize == 5){
-			long _clusterAffinities[] = { 1L << 1 | 1L << 17, 1L << 2 | 1L << 18, 1L << 3 | 1L << 19, 1L << 4 | 1L << 20};
-			clusterAffinities = _clusterAffinities;
-		} else if (poolsize == 6){
-			System.out.println("Animesh layout");
-			long _clusterAffinities[] = { 1L << 0 | 1L << 16, 1L << 8 | 1L << 24, 1L << 4 | 1L << 20, 1L << 12 | 1L << 28};
-			clusterAffinities = _clusterAffinities;			
-		} else if (poolsize == 11){
-			long _clusterAffinities[] = { 1L << 1 | 1L << 17};
-			clusterAffinities = _clusterAffinities;			
-		} else if (poolsize == 12){
-			long _clusterAffinities[] = { 1L << 1 | 1L << 17, 1L << 2 | 1L << 18};
-			clusterAffinities = _clusterAffinities;			
-		} else if (poolsize == 13){
-			long _clusterAffinities[] = { 1L << 1 | 1L << 17, 1L << 2 | 1L << 18, 1L << 3 | 1L << 19};
-			clusterAffinities = _clusterAffinities;			
-		} else if (poolsize == 14){
-			long _clusterAffinities[] = { 1L << 1 | 1L << 17, 1L << 2 | 1L << 18, 1L << 3 | 1L << 19, 1L << 4 | 1L << 20};
-			clusterAffinities = _clusterAffinities;			
-		} else if (poolsize == 15){
-			long _clusterAffinities[] = { 1L << 1 | 1L << 17, 1L << 2 | 1L << 18, 1L << 3 | 1L << 19, 1L << 4 | 1L << 20, 1L << 9 | 1L << 25};
-			clusterAffinities = _clusterAffinities;			
-		} else if (poolsize == 16){
-			long _clusterAffinities[] = { 1L << 1 | 1L << 17, 1L << 2 | 1L << 18, 1L << 3 | 1L << 19, 1L << 4 | 1L << 20, 1L << 9 | 1L << 25, 1L << 10 | 1L << 26};
-			clusterAffinities = _clusterAffinities;			
-		} else if (poolsize == 17){
-			long _clusterAffinities[] = {1L << 1 | 1L << 17, 1L << 2 | 1L << 18, 1L << 3 | 1L << 19, 1L << 4 | 1L << 20, 1L << 9 | 1L << 25, 1L << 10 | 1L << 26, 1L << 11 | 1L << 27};
-			clusterAffinities = _clusterAffinities;			
-		} else if (poolsize == 18){
-			long _clusterAffinities[] = {1L << 1 | 1L << 17, 1L << 2 | 1L << 18, 1L << 3 | 1L << 19, 1L << 4 | 1L << 20, 1L << 9 | 1L << 25, 1L << 10 | 1L << 26, 1L << 11 | 1L << 27, 1L << 12 | 1L << 28};
-			clusterAffinities = _clusterAffinities;			
-		} else {
-			long _clusterAffinities[] = { 1L << 1 | 1L << 17 };
-			clusterAffinities = _clusterAffinities;
-		}		
-
-		System.out.println("running...server " + ipAddress + ", poolsize " + poolsize + ", maxinline " + maxinline + ", polling " + polling + ", rpcpipeline " + rpcpipeline + ", cqSize " + rpcpipeline*connections*2 + ", wrSize " + wrSize + ", rpcservice-timeout " + servicetimeout);
+		long[] clusterAffinities = new long[poolsize];
+		for (int i = 0; i < poolsize; i++){
+			long cpu = 1L << i;
+			clusterAffinities[i] = cpu;
+		}
+		System.out.println("running...server " + ipAddress + ", poolsize " + poolsize + ", maxinline " + maxinline + ", polling " + polling + ", queueSize " + queueSize + ", cqSize " + queueSize*connections*2 + ", wqSize " + wqSize + ", rpcservice-timeout " + servicetimeout);
 		RdmaRpcService rpcService = new RdmaRpcService(servicetimeout);
-		RpcServerGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcServerGroup.createServerGroup(rpcService, clusterAffinities, -1, maxinline, polling, rpcpipeline, rpcpipeline*connections*2, wrSize); 
+		RpcServerGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcServerGroup.createServerGroup(rpcService, clusterAffinities, -1, maxinline, polling, queueSize, queueSize*connections*2, wqSize); 
 		RdmaServerEndpoint<RpcServerEndpoint<RdmaRpcRequest, RdmaRpcResponse>> serverEp = group.createServerEndpoint();
 		serverEp.bind(addr, 1000);
 		while(true){
@@ -115,7 +71,7 @@ public class DaRPCServer {
 			}
 		}
 
-		GetOpt go = new GetOpt(_args, "a:s:r:p:di:c:w:");
+		GetOpt go = new GetOpt(_args, "a:s:p:di:c:w:q:");
 		go.optErr = true;
 		int ch = -1;
 
@@ -128,8 +84,6 @@ public class DaRPCServer {
 				RdmaRpcResponse.SERIALIZED_SIZE = serialized_size;
 			} else if ((char) ch == 'p') {
 				poolsize = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'r') {
-				rpcpipeline = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 't') {
 				servicetimeout = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 'd') {
@@ -139,7 +93,9 @@ public class DaRPCServer {
 			} else if ((char) ch == 'c') {
 				connections = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 'w') {
-				wrSize = Integer.parseInt(go.optArgGet());
+				wqSize = Integer.parseInt(go.optArgGet());
+			} else if ((char) ch == 'q') {
+				queueSize = Integer.parseInt(go.optArgGet());
 			} else {
 				System.exit(1); // undefined option
 			}
