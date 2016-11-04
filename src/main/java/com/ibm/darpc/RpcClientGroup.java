@@ -10,14 +10,14 @@ import com.ibm.disni.rdma.verbs.RdmaCmId;
 
 public class RpcClientGroup<R extends RpcMessage, T extends RpcMessage> extends RpcEndpointGroup<RpcClientEndpoint<R,T>, R, T> {
 	public static <R extends RpcMessage, T extends RpcMessage> RpcClientGroup<R, T> createClientGroup(RpcProtocol<R, T> protocol, int timeout, int maxinline, int rpcpipeline) throws Exception {
-		RpcClientGroup<R,T> group = new RpcClientGroup<R,T>(protocol, timeout, maxinline, rpcpipeline, rpcpipeline*2);
+		RpcClientGroup<R,T> group = new RpcClientGroup<R,T>(protocol, timeout, maxinline, rpcpipeline);
 		group.init(new RpcClientFactory<R,T>(group));
 		return group;
 	}	
 	
-	private RpcClientGroup(RpcProtocol<R, T> protocol, int timeout, int maxinline, int rpcpipeline, int cqSize)
+	private RpcClientGroup(RpcProtocol<R, T> protocol, int timeout, int maxinline, int rpcpipeline)
 			throws Exception {
-		super(protocol, timeout, maxinline, rpcpipeline, cqSize);
+		super(protocol, timeout, maxinline, rpcpipeline);
 	}
 	
 
@@ -28,7 +28,7 @@ public class RpcClientGroup<R extends RpcMessage, T extends RpcMessage> extends 
 
 	@Override
 	public RdmaCqProvider createCqProvider(RpcClientEndpoint<R, T> endpoint) throws IOException {
-		return new RdmaCqProvider(endpoint.getIdPriv().getVerbs(), this.getCqSize());
+		return new RdmaCqProvider(endpoint.getIdPriv().getVerbs(), recvQueueSize() + sendQueueSize());
 	}
 
 	@Override

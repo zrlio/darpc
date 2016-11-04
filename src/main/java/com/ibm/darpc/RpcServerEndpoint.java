@@ -22,13 +22,13 @@ public class RpcServerEndpoint<R extends RpcMessage, T extends RpcMessage> exten
 		super(group, idPriv, serverSide);
 		this.group = group;
 		this.getClusterId = group.newClusterId();
-		this.eventPool = new ArrayBlockingQueue<RpcServerEvent<R,T>>(group.getRpcpipeline());
-		this.lazyEvents = new ArrayBlockingQueue<RpcServerEvent<R,T>>(group.getRpcpipeline());
+		this.eventPool = new ArrayBlockingQueue<RpcServerEvent<R,T>>(group.recvQueueSize());
+		this.lazyEvents = new ArrayBlockingQueue<RpcServerEvent<R,T>>(group.recvQueueSize());
 	}
 
 	public void init() throws IOException {
 		super.init();
-		for(int i = 0; i < group.getRpcpipeline(); i++){
+		for(int i = 0; i < group.recvQueueSize(); i++){
 			RpcServerEvent<R,T> event = new RpcServerEvent<R,T>(this, group.createRequest(), group.createResponse());
 			this.eventPool.add(event);
 			

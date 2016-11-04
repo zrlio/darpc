@@ -48,9 +48,9 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 	private IbvMr[] recvMRs;
 	private IbvMr[] sendMRs;
 	private SVCPostRecv[] recvCall;
-	private SendOperation[] sendCall;
-	private ConcurrentHashMap<Integer, SendOperation> pendingPostSend;
-	private ArrayBlockingQueue<SendOperation> freePostSend;
+	private SVCPostSend[] sendCall;
+	private ConcurrentHashMap<Integer, SVCPostSend> pendingPostSend;
+	private ArrayBlockingQueue<SVCPostSend> freePostSend;
 	private AtomicLong ticketCount;
 	private int pipelineLength;
 	private int bufferSize;
@@ -64,13 +64,13 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 		this.rpcGroup = endpointGroup;
 		this.maxinline = rpcGroup.getMaxInline();
 		this.bufferSize = rpcGroup.getBufferSize();
-		this.pipelineLength = rpcGroup.getRpcpipeline();
-		this.freePostSend = new ArrayBlockingQueue<SendOperation>(pipelineLength);
-		this.pendingPostSend = new ConcurrentHashMap<Integer, SendOperation>();
+		this.pipelineLength = rpcGroup.recvQueueSize();
+		this.freePostSend = new ArrayBlockingQueue<SVCPostSend>(pipelineLength);
+		this.pendingPostSend = new ConcurrentHashMap<Integer, SVCPostSend>();
 		this.recvBufs = new ByteBuffer[pipelineLength];
 		this.sendBufs = new ByteBuffer[pipelineLength];
 		this.recvCall = new SVCPostRecv[pipelineLength];
-		this.sendCall = new SendOperation[pipelineLength];
+		this.sendCall = new SVCPostSend[pipelineLength];
 		this.recvMRs = new IbvMr[pipelineLength];
 		this.sendMRs = new IbvMr[pipelineLength];
 		this.ticketCount = new AtomicLong(0);
@@ -108,9 +108,8 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 	}
 	
 	protected boolean sendMessage(RpcMessage message, int ticket) throws IOException {
-		SendOperation sendOperation = freePostSend.poll();
-		if (sendOperation != null){
-			SVCPostSend postSend = sendOperation.getPostSend();
+		SVCPostSend postSend = freePostSend.poll();
+		if (postSend != null){
 			int index = (int) postSend.getWrMod(0).getWr_id();
 			sendBufs[index].putInt(0, ticket);
 			sendBufs[index].position(4);
@@ -120,7 +119,7 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 			if (written <= maxinline) {
 				postSend.getWrMod(0).setSend_flags(postSend.getWrMod(0).getSend_flags() | IbvSendWR.IBV_SEND_INLINE);
 			} 
-			pendingPostSend.put(ticket, sendOperation);
+			pendingPostSend.put(ticket, postSend);
 			postSend.execute();
 			messagesSent.incrementAndGet();
 			return true;
@@ -134,7 +133,7 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 	}	
 	
 	public void freeSend(int ticket) throws IOException {
-		SendOperation sendOperation = pendingPostSend.remove(ticket);
+		SVCPostSend sendOperation = pendingPostSend.remove(ticket);
 		if (sendOperation == null) {
 			throw new IOException("no pending ticket " + ticket + ", current ticket count " + ticketCount.get());
 		}
@@ -167,7 +166,7 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 		}		
 	}	
 	
-	private SendOperation setupSendTask(ByteBuffer sendBuf, int wrid) throws IOException {
+	private SVCPostSend setupSendTask(ByteBuffer sendBuf, int wrid) throws IOException {
 		ArrayList<IbvSendWR> sendWRs = new ArrayList<IbvSendWR>(1);
 		LinkedList<IbvSge> sgeList = new LinkedList<IbvSge>();
 		
@@ -187,7 +186,7 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 		sendWR.setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
 		sendWR.setOpcode(IbvSendWR.IbvWrOcode.IBV_WR_SEND.ordinal());
 		
-		return new SendOperation(postSend(sendWRs));
+		return postSend(sendWRs);
 	}
 
 	private SVCPostRecv setupRecvTask(ByteBuffer recvBuf, int wrid) throws IOException {
@@ -209,28 +208,5 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 		recvWRs.add(recvWR);
 	
 		return postRecv(recvWRs);
-	}
-
-	static class SendOperation {
-		SVCPostSend postSend;
-		AtomicInteger counter;
-		
-		public SendOperation(SVCPostSend postSend){
-			this.postSend = postSend;
-			this.counter = new AtomicInteger(0);
-		}
-
-		public SVCPostSend getPostSend() {
-			return postSend;
-		}
-		
-		public boolean touchOperation(){
-			if (counter.incrementAndGet() == 2){
-				counter.set(0);
-				return true;
-			} else {
-				return false;
-			}
-		}
 	}
 }

@@ -33,8 +33,8 @@ public abstract class RpcEndpointGroup<E extends RpcEndpoint<R,T>, R extends Rpc
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	private static int DARPC_VERSION = 46;
 	
-	private int cqSize;
-	private int rpcpipeline;
+	private int recvQueueSize;
+	private int sendQueueSize;
 	private int timeout;
 	private int bufferSize;
 	private int maxInline;
@@ -43,21 +43,21 @@ public abstract class RpcEndpointGroup<E extends RpcEndpoint<R,T>, R extends Rpc
 		return DARPC_VERSION;
 	}	
 	
-	protected RpcEndpointGroup(RpcProtocol<R,T> protocol, int timeout, int maxinline, int rpcpipeline, int cqSize) throws Exception {
+	protected RpcEndpointGroup(RpcProtocol<R,T> protocol, int timeout, int maxinline, int rpcpipeline) throws Exception {
 		super(timeout);
+		this.recvQueueSize = rpcpipeline;
+		this.sendQueueSize = rpcpipeline*2;
 		this.timeout = timeout;
 		this.bufferSize = Math.max(protocol.createRequest().size(), protocol.createResponse().size());
-		this.rpcpipeline = rpcpipeline;
-		this.cqSize = cqSize;
 		this.maxInline = maxinline;
 	}	
 	
 	protected synchronized IbvQP createQP(RdmaCmId id, IbvPd pd, IbvCQ cq) throws IOException{
 		IbvQPInitAttr attr = new IbvQPInitAttr();
+		attr.cap().setMax_recv_wr(recvQueueSize);
+		attr.cap().setMax_send_wr(sendQueueSize);
 		attr.cap().setMax_recv_sge(1);
-		attr.cap().setMax_recv_wr(rpcpipeline);
 		attr.cap().setMax_send_sge(1);
-		attr.cap().setMax_send_wr(rpcpipeline);
 		attr.cap().setMax_inline_data(maxInline);
 		attr.setQp_type(IbvQP.IBV_QPT_RC);
 		attr.setRecv_cq(cq);
@@ -79,15 +79,15 @@ public abstract class RpcEndpointGroup<E extends RpcEndpoint<R,T>, R extends Rpc
 		logger.info("rpc group down");
 	}	
 	
-	public int getRpcpipeline() {
-		return rpcpipeline;
-	}	
+	public int recvQueueSize() {
+		return recvQueueSize;
+	}
+	
+	public int sendQueueSize() {
+		return sendQueueSize;
+	}		
 	
 	public int getMaxInline() {
 		return maxInline;
-	}
-
-	public int getCqSize() {
-		return cqSize;
 	}
 }
