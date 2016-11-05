@@ -34,8 +34,9 @@ import com.ibm.disni.util.*;
 public class DaRPCServer {
 	private String ipAddress; 
 	private int poolsize = 3;
-	private int queueSize = 16;
-	private int wqSize = queueSize;
+	private int recvQueue = 16;
+	private int sendQueue = 16;
+	private int wqSize = recvQueue;
 	private int servicetimeout = 0;
 	private boolean polling = false;
 	private int maxinline = 0;
@@ -50,9 +51,9 @@ public class DaRPCServer {
 			long cpu = 1L << i;
 			clusterAffinities[i] = cpu;
 		}
-		System.out.println("running...server " + ipAddress + ", poolsize " + poolsize + ", maxinline " + maxinline + ", polling " + polling + ", queueSize " + queueSize + ", cqSize " + queueSize*connections*2 + ", wqSize " + wqSize + ", rpcservice-timeout " + servicetimeout);
+		System.out.println("running...server " + ipAddress + ", poolsize " + poolsize + ", maxinline " + maxinline + ", polling " + polling + ", recvQueue " + recvQueue + ", sendQueue " + sendQueue + ", wqSize " + wqSize + ", rpcservice-timeout " + servicetimeout);
 		RdmaRpcService rpcService = new RdmaRpcService(servicetimeout);
-		RpcServerGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcServerGroup.createServerGroup(rpcService, clusterAffinities, -1, maxinline, polling, queueSize, queueSize*connections*2, wqSize); 
+		RpcServerGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcServerGroup.createServerGroup(rpcService, clusterAffinities, -1, maxinline, polling, recvQueue, sendQueue, wqSize, 32); 
 		RdmaServerEndpoint<RpcServerEndpoint<RdmaRpcRequest, RdmaRpcResponse>> serverEp = group.createServerEndpoint();
 		serverEp.bind(addr, 1000);
 		while(true){
@@ -71,17 +72,13 @@ public class DaRPCServer {
 			}
 		}
 
-		GetOpt go = new GetOpt(_args, "a:s:p:di:c:w:q:");
+		GetOpt go = new GetOpt(_args, "a:p:s:da:c:r:s:w:");
 		go.optErr = true;
 		int ch = -1;
 
 		while ((ch = go.getopt()) != GetOpt.optEOF) {
 			if ((char) ch == 'a') {
 				ipAddress = go.optArgGet();
-			} else if ((char) ch == 's') {
-				int serialized_size = Integer.parseInt(go.optArgGet());
-				RdmaRpcRequest.SERIALIZED_SIZE = serialized_size;
-				RdmaRpcResponse.SERIALIZED_SIZE = serialized_size;
 			} else if ((char) ch == 'p') {
 				poolsize = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 't') {
@@ -94,8 +91,10 @@ public class DaRPCServer {
 				connections = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 'w') {
 				wqSize = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'q') {
-				queueSize = Integer.parseInt(go.optArgGet());
+			} else if ((char) ch == 'r') {
+				recvQueue = Integer.parseInt(go.optArgGet());
+			} else if ((char) ch == 's') {
+				sendQueue = Integer.parseInt(go.optArgGet());
 			} else {
 				System.exit(1); // undefined option
 			}

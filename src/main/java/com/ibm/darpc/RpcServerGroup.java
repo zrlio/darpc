@@ -24,17 +24,17 @@ public class RpcServerGroup<R extends RpcMessage, T extends RpcMessage> extends 
 	private int nbrOfClusters;
 	private RpcService<R, T> rpcService;
 	private boolean polling;
-	private int wrSize;
+	private int pollSize;
 	private int clusterSize;
 	
-	public static <R extends RpcMessage, T extends RpcMessage> RpcServerGroup<R, T> createServerGroup(RpcService<R, T> rpcService, long[] clusterAffinities, int timeout, int maxinline, boolean polling, int rpcpipeline, int wrSize, int clusterSize) throws Exception {
-		RpcServerGroup<R,T> group = new RpcServerGroup<R,T>(rpcService, clusterAffinities, timeout, maxinline, polling, rpcpipeline, wrSize, clusterSize);
+	public static <R extends RpcMessage, T extends RpcMessage> RpcServerGroup<R, T> createServerGroup(RpcService<R, T> rpcService, long[] clusterAffinities, int timeout, int maxinline, boolean polling, int recvQueue, int sendQueue, int pollSize, int clusterSize) throws Exception {
+		RpcServerGroup<R,T> group = new RpcServerGroup<R,T>(rpcService, clusterAffinities, timeout, maxinline, polling, recvQueue, sendQueue, pollSize, clusterSize);
 		group.init(new RpcServerFactory<R,T>(group));
 		return group;
 	}
 
-	private RpcServerGroup(RpcService<R, T> rpcService, long[] clusterAffinities, int timeout, int maxinline, boolean polling, int rpcpipeline, int wrSize, int clusterSize) throws Exception {
-		super(rpcService, timeout, maxinline, rpcpipeline);
+	private RpcServerGroup(RpcService<R, T> rpcService, long[] clusterAffinities, int timeout, int maxinline, boolean polling, int recvQueue, int sendQueue, int pollSize, int clusterSize) throws Exception {
+		super(rpcService, timeout, maxinline, recvQueue, sendQueue);
 		
 		this.rpcService = rpcService;
 		deviceInstance = new ConcurrentHashMap<Integer, RpcInstance<R,T>>();
@@ -44,7 +44,7 @@ public class RpcServerGroup<R extends RpcMessage, T extends RpcMessage> extends 
 		this.currentCluster = 0;
 		resourceManager = new RpcResourceManager(resourceAffinities, timeout);
 		this.polling = polling;
-		this.wrSize = wrSize;
+		this.pollSize = pollSize;
 		this.clusterSize = clusterSize;
 	}
 	
@@ -58,7 +58,7 @@ public class RpcServerGroup<R extends RpcMessage, T extends RpcMessage> extends 
 		int key = context.getCmd_fd();
 		if (!deviceInstance.containsKey(key)) {
 			int cqSize = (this.recvQueueSize() + this.sendQueueSize())*clusterSize;
-			rpcInstance = new RpcInstance<R,T>(context, cqSize, this.wrSize, computeAffinities, this.getTimeout(), polling);
+			rpcInstance = new RpcInstance<R,T>(context, cqSize, this.pollSize, computeAffinities, this.getTimeout(), polling);
 			deviceInstance.put(context.getCmd_fd(), rpcInstance);
 		}
 		rpcInstance = deviceInstance.get(context.getCmd_fd());

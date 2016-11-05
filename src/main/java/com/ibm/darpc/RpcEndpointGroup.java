@@ -43,10 +43,10 @@ public abstract class RpcEndpointGroup<E extends RpcEndpoint<R,T>, R extends Rpc
 		return DARPC_VERSION;
 	}	
 	
-	protected RpcEndpointGroup(RpcProtocol<R,T> protocol, int timeout, int maxinline, int rpcpipeline) throws Exception {
+	protected RpcEndpointGroup(RpcProtocol<R,T> protocol, int timeout, int maxinline, int recvQueue, int sendQueue) throws Exception {
 		super(timeout);
-		this.recvQueueSize = rpcpipeline;
-		this.sendQueueSize = rpcpipeline*2;
+		this.recvQueueSize = recvQueue;
+		this.sendQueueSize = Math.max(recvQueue, sendQueue);
 		this.timeout = timeout;
 		this.bufferSize = Math.max(protocol.createRequest().size(), protocol.createResponse().size());
 		this.maxInline = maxinline;

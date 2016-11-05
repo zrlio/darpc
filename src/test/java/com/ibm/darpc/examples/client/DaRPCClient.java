@@ -175,11 +175,12 @@ public class DaRPCClient {
 		int loop = 100;
 		int threadCount = 1;
 		int mode = ClientThread.FUTURE_POLL;
-		int rpcpipeline = 16;
+		int batchSize = 16;
 		int connections = 1;
 		int clienttimeout = 3000;
 		int maxinline = 0;
-		int queueSize = rpcpipeline;
+		int recvQueue = batchSize;
+		int sendQueue = batchSize;
 
 		String[] _args = args;
 		if (args.length < 1) {
@@ -191,17 +192,13 @@ public class DaRPCClient {
 			}
 		}
 
-		GetOpt go = new GetOpt(_args, "a:s:k:n:m:hr:c:t:i:q:");
+		GetOpt go = new GetOpt(_args, "a:k:n:m:b:c:a:r:s:");
 		go.optErr = true;
 		int ch = -1;
 		
 		while ((ch = go.getopt()) != GetOpt.optEOF) {
 			if ((char) ch == 'a') {
 				ipAddress = go.optArgGet();
-			} else if ((char) ch == 's') {
-				int serialized_size = Integer.parseInt(go.optArgGet());
-				RdmaRpcRequest.SERIALIZED_SIZE = serialized_size;
-				RdmaRpcResponse.SERIALIZED_SIZE = serialized_size;
 			} else if ((char) ch == 'k') {
 				loop = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 'n') {
@@ -221,16 +218,18 @@ public class DaRPCClient {
 				} else if (_mode.equalsIgnoreCase("batch-stream-poll")) {
 					mode = ClientThread.BATCH_STREAM_POLL;
 				}
-			} else if ((char) ch == 'r') {
-				rpcpipeline = Integer.parseInt(go.optArgGet());
+			} else if ((char) ch == 'b') {
+				batchSize = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 'c') {
 				connections = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 't') {
 				clienttimeout = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'i') {
+			} else if ((char) ch == 'a') {
 				maxinline = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'q') {
-				queueSize = Integer.parseInt(go.optArgGet());
+			} else if ((char) ch == 'r') {
+				recvQueue = Integer.parseInt(go.optArgGet());
+			} else if ((char) ch == 's') {
+				sendQueue = Integer.parseInt(go.optArgGet());
 			} else {
 				System.exit(1); // undefined option
 			}
@@ -247,8 +246,8 @@ public class DaRPCClient {
 		InetAddress localHost = InetAddress.getByName(ipAddress);
 		InetSocketAddress address = new InetSocketAddress(localHost, 1919);		
 		RdmaRpcProtocol rpcProtocol = new RdmaRpcProtocol();
-		System.out.println("starting.. threads " + threadCount + ", connections " + connections + ", server " + ipAddress + ", queueSize " + queueSize + ", rpcpipeline " + rpcpipeline + ", mode " + mode);
-		RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcClientGroup.createClientGroup(rpcProtocol, 100, maxinline, queueSize);
+		System.out.println("starting.. threads " + threadCount + ", connections " + connections + ", server " + ipAddress + ", recvQueue " + recvQueue + ", sendQueue" + sendQueue + ", batchSize " + batchSize + ", mode " + mode);
+		RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcClientGroup.createClientGroup(rpcProtocol, 100, maxinline, recvQueue, sendQueue);
 		
 		int k = 0;
 		for (int i = 0; i < rpcConnections.length; i++){
@@ -256,7 +255,7 @@ public class DaRPCClient {
 			clientEp.connect(address, 1000);
 			rpcConnections[i] = clientEp;
 			for (int j = 0; j < threadsperconnection; j++){
-				benchmarkTask[k] = new ClientThread(clientEp, loop, address, mode, rpcpipeline, clienttimeout);
+				benchmarkTask[k] = new ClientThread(clientEp, loop, address, mode, batchSize, clienttimeout);
 				k++;
 			}
 		}

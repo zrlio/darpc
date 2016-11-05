@@ -9,15 +9,15 @@ import com.ibm.disni.rdma.verbs.IbvQP;
 import com.ibm.disni.rdma.verbs.RdmaCmId;
 
 public class RpcClientGroup<R extends RpcMessage, T extends RpcMessage> extends RpcEndpointGroup<RpcClientEndpoint<R,T>, R, T> {
-	public static <R extends RpcMessage, T extends RpcMessage> RpcClientGroup<R, T> createClientGroup(RpcProtocol<R, T> protocol, int timeout, int maxinline, int rpcpipeline) throws Exception {
-		RpcClientGroup<R,T> group = new RpcClientGroup<R,T>(protocol, timeout, maxinline, rpcpipeline);
+	public static <R extends RpcMessage, T extends RpcMessage> RpcClientGroup<R, T> createClientGroup(RpcProtocol<R, T> protocol, int timeout, int maxinline, int recvQueue, int sendQueue) throws Exception {
+		RpcClientGroup<R,T> group = new RpcClientGroup<R,T>(protocol, timeout, maxinline, recvQueue, sendQueue);
 		group.init(new RpcClientFactory<R,T>(group));
 		return group;
 	}	
 	
-	private RpcClientGroup(RpcProtocol<R, T> protocol, int timeout, int maxinline, int rpcpipeline)
+	private RpcClientGroup(RpcProtocol<R, T> protocol, int timeout, int maxinline, int recvQueue, int sendQueue)
 			throws Exception {
-		super(protocol, timeout, maxinline, rpcpipeline);
+		super(protocol, timeout, maxinline, recvQueue, sendQueue);
 	}
 	
 
