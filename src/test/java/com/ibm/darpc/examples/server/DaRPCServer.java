@@ -72,7 +72,7 @@ public class DaRPCServer {
 			}
 		}
 
-		GetOpt go = new GetOpt(_args, "a:p:s:da:c:r:s:w:");
+		GetOpt go = new GetOpt(_args, "a:p:s:da:c:r:s:w:l:");
 		go.optErr = true;
 		int ch = -1;
 
@@ -95,6 +95,9 @@ public class DaRPCServer {
 				recvQueue = Integer.parseInt(go.optArgGet());
 			} else if ((char) ch == 's') {
 				sendQueue = Integer.parseInt(go.optArgGet());
+			} else if ((char) ch == 'l') {
+				RdmaRpcRequest.SERIALIZED_SIZE = Integer.parseInt(go.optArgGet());
+				RdmaRpcResponse.SERIALIZED_SIZE = RdmaRpcRequest.SERIALIZED_SIZE;
 			} else {
 				System.exit(1); // undefined option
 			}
