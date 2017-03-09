@@ -24,6 +24,7 @@ package com.ibm.darpc.examples.client;
 import java.io.FileOutputStream;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -64,7 +65,7 @@ public class DaRPCClient {
 		protected double writeOps;
 		protected double errorOps;		
 		
-		public ClientThread(RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp, int loop, InetSocketAddress address, int mode, int rpcpipeline, int clienttimeout){
+		public ClientThread(RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp, int loop, URI uri, int mode, int rpcpipeline, int clienttimeout){
 			this.clientEp = clientEp;
 			this.loop = loop;
 			this.queryMode = mode;
@@ -246,19 +247,17 @@ public class DaRPCClient {
 		Thread[] workers = new Thread[threadCount];
 		ClientThread[] benchmarkTask = new ClientThread[threadCount];
 		
-		InetAddress localHost = InetAddress.getByName(ipAddress);
-		InetSocketAddress address = new InetSocketAddress(localHost, 1919);		
 		RdmaRpcProtocol rpcProtocol = new RdmaRpcProtocol();
 		System.out.println("starting.. threads " + threadCount + ", connections " + connections + ", server " + ipAddress + ", recvQueue " + recvQueue + ", sendQueue" + sendQueue + ", batchSize " + batchSize + ", mode " + mode);
 		RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcClientGroup.createClientGroup(rpcProtocol, 100, maxinline, recvQueue, sendQueue);
-		
+		URI uri = URI.create("rdma://" + ipAddress + ":" + 1919);
 		int k = 0;
 		for (int i = 0; i < rpcConnections.length; i++){
 			RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp = group.createEndpoint();
-			clientEp.connect(address, 1000);
+			clientEp.connect(uri);
 			rpcConnections[i] = clientEp;
 			for (int j = 0; j < threadsperconnection; j++){
-				benchmarkTask[k] = new ClientThread(clientEp, loop, address, mode, batchSize, clienttimeout);
+				benchmarkTask[k] = new ClientThread(clientEp, loop, uri, mode, batchSize, clienttimeout);
 				k++;
 			}
 		}

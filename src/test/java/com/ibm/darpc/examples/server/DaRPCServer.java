@@ -23,6 +23,7 @@ package com.ibm.darpc.examples.server;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.URI;
 
 import com.ibm.darpc.RpcServerEndpoint;
 import com.ibm.darpc.RpcServerGroup;
@@ -43,9 +44,6 @@ public class DaRPCServer {
 	private int connections = 16;
 	
 	public void run() throws Exception{
-		InetAddress localHost = InetAddress.getByName(ipAddress);
-		InetSocketAddress addr = new InetSocketAddress(localHost, 1919);	
-		
 		long[] clusterAffinities = new long[poolsize];
 		for (int i = 0; i < poolsize; i++){
 			long cpu = 1L << i;
@@ -55,7 +53,8 @@ public class DaRPCServer {
 		RdmaRpcService rpcService = new RdmaRpcService(servicetimeout);
 		RpcServerGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcServerGroup.createServerGroup(rpcService, clusterAffinities, -1, maxinline, polling, recvQueue, sendQueue, wqSize, 32); 
 		RdmaServerEndpoint<RpcServerEndpoint<RdmaRpcRequest, RdmaRpcResponse>> serverEp = group.createServerEndpoint();
-		serverEp.bind(addr, 1000);
+		URI uri = URI.create("rdma://" + ipAddress + ":" + 1919);
+		serverEp.bind(uri);
 		while(true){
 			serverEp.accept();
 		}		
