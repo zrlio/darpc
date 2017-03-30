@@ -31,7 +31,7 @@ import com.ibm.disni.rdma.*;
 
 public abstract class RpcEndpointGroup<E extends RpcEndpoint<R,T>, R extends RpcMessage, T extends RpcMessage> extends RdmaEndpointGroup<E> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
-	private static int DARPC_VERSION = 46;
+	private static int DARPC_VERSION = 50;
 	
 	private int recvQueueSize;
 	private int sendQueueSize;
