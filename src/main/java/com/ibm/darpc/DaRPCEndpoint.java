@@ -36,13 +36,13 @@ import org.slf4j.LoggerFactory;
 import com.ibm.disni.rdma.verbs.*;
 import com.ibm.disni.rdma.*;
 
-public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> extends RdmaEndpoint {
+public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessage> extends RdmaEndpoint {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	
 	public abstract void dispatchReceive(ByteBuffer buffer, int ticket, int recvIndex) throws IOException;
 	public abstract void dispatchSend(int ticket) throws IOException;
 	
-	private RpcEndpointGroup<? extends RpcEndpoint<R,T>, R, T> rpcGroup;
+	private DaRPCEndpointGroup<? extends DaRPCEndpoint<R,T>, R, T> rpcGroup;
 	private ByteBuffer[] recvBufs;
 	private ByteBuffer[] sendBufs;
 	private IbvMr[] recvMRs;
@@ -59,7 +59,7 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 	private AtomicLong messagesReceived;
 	
 	
-	public RpcEndpoint(RpcEndpointGroup<? extends RpcEndpoint<R,T>, R, T> endpointGroup, RdmaCmId idPriv, boolean serverSide) throws IOException {
+	public DaRPCEndpoint(DaRPCEndpointGroup<? extends DaRPCEndpoint<R,T>, R, T> endpointGroup, RdmaCmId idPriv, boolean serverSide) throws IOException {
 		super(endpointGroup, idPriv, serverSide);
 		this.rpcGroup = endpointGroup;
 		this.maxinline = rpcGroup.getMaxInline();
@@ -107,7 +107,7 @@ public abstract class RpcEndpoint<R extends RpcMessage, T extends RpcMessage> ex
 		return messagesReceived.get();
 	}
 	
-	protected boolean sendMessage(RpcMessage message, int ticket) throws IOException {
+	protected boolean sendMessage(DaRPCMessage message, int ticket) throws IOException {
 		SVCPostSend postSend = freePostSend.poll();
 		if (postSend != null){
 			int index = (int) postSend.getWrMod(0).getWr_id();

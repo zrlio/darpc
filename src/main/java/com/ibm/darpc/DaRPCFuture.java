@@ -8,7 +8,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class RpcFuture<R extends RpcMessage, T extends RpcMessage> implements Future<T> {
+public class DaRPCFuture<R extends DaRPCMessage, T extends DaRPCMessage> implements Future<T> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	
 	protected static int RPC_PENDING = 0;
@@ -19,13 +19,13 @@ public class RpcFuture<R extends RpcMessage, T extends RpcMessage> implements Fu
 	private R request;
 	private T response;	
 	
-	private RpcStream<R, T> stream;
-	private RpcClientEndpoint<R,T> endpoint;
+	private DaRPCStream<R, T> stream;
+	private DaRPCClientEndpoint<R,T> endpoint;
 	private boolean streamLogged;
 	private AtomicInteger status;
 	private AtomicInteger recvStatus;
 	
-	public RpcFuture(RpcStream<R,T> stream, RpcClientEndpoint<R,T> endpoint, R request, T response, boolean streamLogged){
+	public DaRPCFuture(DaRPCStream<R,T> stream, DaRPCClientEndpoint<R,T> endpoint, R request, T response, boolean streamLogged){
 		this.request = request;
 		this.response = response;		
 		this.ticket = -1;		

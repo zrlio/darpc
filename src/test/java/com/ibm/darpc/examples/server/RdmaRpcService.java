@@ -23,21 +23,21 @@ package com.ibm.darpc.examples.server;
 
 import java.io.IOException;
 
-import com.ibm.darpc.RpcServerEndpoint;
-import com.ibm.darpc.RpcServerEvent;
-import com.ibm.darpc.RpcService;
+import com.ibm.darpc.DaRPCServerEndpoint;
+import com.ibm.darpc.DaRPCServerEvent;
+import com.ibm.darpc.DaRPCService;
 import com.ibm.darpc.examples.protocol.RdmaRpcProtocol;
 import com.ibm.darpc.examples.protocol.RdmaRpcRequest;
 import com.ibm.darpc.examples.protocol.RdmaRpcResponse;
 
-public class RdmaRpcService extends RdmaRpcProtocol implements RpcService<RdmaRpcRequest, RdmaRpcResponse> {
+public class RdmaRpcService extends RdmaRpcProtocol implements DaRPCService<RdmaRpcRequest, RdmaRpcResponse> {
 	private int servicetimeout;
 	
 	public RdmaRpcService(int servicetimeout){
 		this.servicetimeout = servicetimeout;
 	}
 	
-	public void processServerEvent(RpcServerEvent<RdmaRpcRequest, RdmaRpcResponse> event) throws IOException {
+	public void processServerEvent(DaRPCServerEvent<RdmaRpcRequest, RdmaRpcResponse> event) throws IOException {
 		RdmaRpcRequest request = event.getReceiveMessage();
 		RdmaRpcResponse response = event.getSendMessage();
 		response.setName(request.getParam() + 1);
@@ -52,12 +52,12 @@ public class RdmaRpcService extends RdmaRpcProtocol implements RpcService<RdmaRp
 	}
 
 	@Override
-	public void open(RpcServerEndpoint<RdmaRpcRequest, RdmaRpcResponse> endpoint) {
+	public void open(DaRPCServerEndpoint<RdmaRpcRequest, RdmaRpcResponse> endpoint) {
 		System.out.println("new connection " + endpoint.getEndpointId() + ", cluster " + endpoint.clusterId());
 	}
 
 	@Override
-	public void close(RpcServerEndpoint<RdmaRpcRequest, RdmaRpcResponse> endpoint) {
+	public void close(DaRPCServerEndpoint<RdmaRpcRequest, RdmaRpcResponse> endpoint) {
 		System.out.println("disconnecting " + endpoint.getEndpointId() + ", cluster " + endpoint.clusterId());
 	}
 }

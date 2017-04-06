@@ -23,13 +23,13 @@ package com.ibm.darpc;
 
 import java.io.IOException;
 
-public class RpcServerEvent<R extends RpcMessage, T extends RpcMessage> {
-	private RpcServerEndpoint<R,T> endpoint;
+public class DaRPCServerEvent<R extends DaRPCMessage, T extends DaRPCMessage> {
+	private DaRPCServerEndpoint<R,T> endpoint;
 	private R request;
 	private T response;
 	private int ticket;
 	
-	RpcServerEvent(RpcServerEndpoint<R,T> endpoint, R request, T response){
+	DaRPCServerEvent(DaRPCServerEndpoint<R,T> endpoint, R request, T response){
 		this.endpoint = endpoint;
 		this.request = request;
 		this.response = response;

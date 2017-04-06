@@ -21,9 +21,9 @@
 
 package com.ibm.darpc.examples.protocol;
 
-import com.ibm.darpc.RpcProtocol;
+import com.ibm.darpc.DaRPCProtocol;
 
-public class RdmaRpcProtocol implements RpcProtocol<RdmaRpcRequest, RdmaRpcResponse> {
+public class RdmaRpcProtocol implements DaRPCProtocol<RdmaRpcRequest, RdmaRpcResponse> {
 	public static final int FUNCTION_FOO = 1;
 	public static final int FUNCTION_BAR = 2;	
 	

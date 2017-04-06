@@ -29,27 +29,27 @@ import org.slf4j.LoggerFactory;
 
 import com.ibm.disni.rdma.verbs.*;
 
-public class RpcInstance<R extends RpcMessage, T extends RpcMessage> {
+public class DaRPCInstance<R extends DaRPCMessage, T extends DaRPCMessage> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	
-	private RpcCluster<R,T>[] processorArray;
+	private DaRPCCluster<R,T>[] processorArray;
 	protected ConcurrentHashMap<RdmaCmId, Object> ids;
 	private int poolsize;
 	
 	@SuppressWarnings("unchecked")
-	public RpcInstance(IbvContext context, int cqSize, int wrSize, long[] affinities, int timeout, boolean polling) throws IOException {
+	public DaRPCInstance(IbvContext context, int cqSize, int wrSize, long[] affinities, int timeout, boolean polling) throws IOException {
 		this.poolsize = affinities.length;
 		logger.info("new cq pool, size " + poolsize);
-		processorArray = new RpcCluster[affinities.length];
+		processorArray = new DaRPCCluster[affinities.length];
 		for (int i = 0; i < affinities.length; i++){
-			processorArray[i] = new RpcCluster<R,T>(context, cqSize, wrSize, affinities[i], i, timeout, polling);
+			processorArray[i] = new DaRPCCluster<R,T>(context, cqSize, wrSize, affinities[i], i, timeout, polling);
 			processorArray[i].start();
 		}
 		this.ids = new ConcurrentHashMap<RdmaCmId, Object>();
 	}
 	
 	
-	public RpcCluster<R,T> getProcessor(int clusterId) {
+	public DaRPCCluster<R,T> getProcessor(int clusterId) {
 		return processorArray[clusterId];
 	}
 	

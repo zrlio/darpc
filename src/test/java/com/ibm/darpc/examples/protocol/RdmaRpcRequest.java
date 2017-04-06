@@ -2,9 +2,9 @@ package com.ibm.darpc.examples.protocol;
 
 import java.nio.ByteBuffer;
 
-import com.ibm.darpc.RpcMessage;
+import com.ibm.darpc.DaRPCMessage;
 
-public class RdmaRpcRequest implements RpcMessage {
+public class RdmaRpcRequest implements DaRPCMessage {
 	public static int SERIALIZED_SIZE = 16;
 	
 	private int cmd;

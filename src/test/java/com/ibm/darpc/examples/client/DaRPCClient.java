@@ -30,11 +30,11 @@ import java.nio.channels.FileChannel;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import com.ibm.darpc.RpcClientEndpoint;
-import com.ibm.darpc.RpcClientGroup;
-import com.ibm.darpc.RpcEndpoint;
-import com.ibm.darpc.RpcFuture;
-import com.ibm.darpc.RpcStream;
+import com.ibm.darpc.DaRPCClientEndpoint;
+import com.ibm.darpc.DaRPCClientGroup;
+import com.ibm.darpc.DaRPCEndpoint;
+import com.ibm.darpc.DaRPCFuture;
+import com.ibm.darpc.DaRPCStream;
 import com.ibm.darpc.examples.protocol.RdmaRpcProtocol;
 import com.ibm.darpc.examples.protocol.RdmaRpcRequest;
 import com.ibm.darpc.examples.protocol.RdmaRpcResponse;
@@ -53,7 +53,7 @@ public class DaRPCClient {
 		public static final int BATCH_STREAM_TAKE = 4;
 		public static final int BATCH_STREAM_POLL = 5;
 		
-		private RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp;
+		private DaRPCClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp;
 		private int loop;
 		private int queryMode;
 		private int clienttimeout;
@@ -65,7 +65,7 @@ public class DaRPCClient {
 		protected double writeOps;
 		protected double errorOps;		
 		
-		public ClientThread(RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp, int loop, URI uri, int mode, int rpcpipeline, int clienttimeout){
+		public ClientThread(DaRPCClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp, int loop, URI uri, int mode, int rpcpipeline, int clienttimeout){
 			this.clientEp = clientEp;
 			this.loop = loop;
 			this.queryMode = mode;
@@ -80,14 +80,14 @@ public class DaRPCClient {
 		@Override
 		public void run() {
 			try {
-				RpcStream<RdmaRpcRequest, RdmaRpcResponse> stream = clientEp.createStream();
+				DaRPCStream<RdmaRpcRequest, RdmaRpcResponse> stream = clientEp.createStream();
 				RdmaRpcRequest request = new RdmaRpcRequest();
 				boolean streamMode = (queryMode == STREAM_POLL) || (queryMode == STREAM_TAKE) || (queryMode == BATCH_STREAM_TAKE) || (queryMode == BATCH_STREAM_POLL);
 				int issued = 0;
 				int consumed = 0;
 				for (;  issued < loop; issued++) {
 					while(freeResponses.isEmpty()){
-						RpcFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.poll();
+						DaRPCFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.poll();
 						if (future != null){
 							freeResponses.add(future.getReceiveMessage());						
 							consumed++;
@@ -96,7 +96,7 @@ public class DaRPCClient {
 					
 					request.setParam(issued);
 					RdmaRpcResponse response = freeResponses.poll();
-					RpcFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.request(request, response, streamMode);
+					DaRPCFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.request(request, response, streamMode);
 					
 					switch (queryMode) {
 					case FUTURE_POLL:
@@ -131,7 +131,7 @@ public class DaRPCClient {
 					}
 				}
 				while (consumed < issued){
-					RpcFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.take();
+					DaRPCFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.take();
 //					System.out.println("response " + future.getReceiveMessage().toString());
 					consumed++;
 					freeResponses.add(future.getReceiveMessage());
@@ -243,17 +243,17 @@ public class DaRPCClient {
 		}
 		
 		int threadsperconnection = threadCount / connections;
-		RpcEndpoint<?,?>[] rpcConnections = new RpcEndpoint[connections];
+		DaRPCEndpoint<?,?>[] rpcConnections = new DaRPCEndpoint[connections];
 		Thread[] workers = new Thread[threadCount];
 		ClientThread[] benchmarkTask = new ClientThread[threadCount];
 		
 		RdmaRpcProtocol rpcProtocol = new RdmaRpcProtocol();
 		System.out.println("starting.. threads " + threadCount + ", connections " + connections + ", server " + ipAddress + ", recvQueue " + recvQueue + ", sendQueue" + sendQueue + ", batchSize " + batchSize + ", mode " + mode);
-		RpcClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = RpcClientGroup.createClientGroup(rpcProtocol, 100, maxinline, recvQueue, sendQueue);
+		DaRPCClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = DaRPCClientGroup.createClientGroup(rpcProtocol, 100, maxinline, recvQueue, sendQueue);
 		URI uri = URI.create("rdma://" + ipAddress + ":" + 1919);
 		int k = 0;
 		for (int i = 0; i < rpcConnections.length; i++){
-			RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp = group.createEndpoint();
+			DaRPCClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp = group.createEndpoint();
 			clientEp.connect(uri);
 			rpcConnections[i] = clientEp;
 			for (int j = 0; j < threadsperconnection; j++){

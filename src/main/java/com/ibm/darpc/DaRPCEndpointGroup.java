@@ -29,7 +29,7 @@ import com.ibm.disni.rdma.verbs.*;
 import com.ibm.disni.rdma.*;
 
 
-public abstract class RpcEndpointGroup<E extends RpcEndpoint<R,T>, R extends RpcMessage, T extends RpcMessage> extends RdmaEndpointGroup<E> {
+public abstract class DaRPCEndpointGroup<E extends DaRPCEndpoint<R,T>, R extends DaRPCMessage, T extends DaRPCMessage> extends RdmaEndpointGroup<E> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	private static int DARPC_VERSION = 50;
 	
@@ -43,7 +43,7 @@ public abstract class RpcEndpointGroup<E extends RpcEndpoint<R,T>, R extends Rpc
 		return DARPC_VERSION;
 	}	
 	
-	protected RpcEndpointGroup(RpcProtocol<R,T> protocol, int timeout, int maxinline, int recvQueue, int sendQueue) throws Exception {
+	protected DaRPCEndpointGroup(DaRPCProtocol<R,T> protocol, int timeout, int maxinline, int recvQueue, int sendQueue) throws Exception {
 		super(timeout);
 		this.recvQueueSize = recvQueue;
 		this.sendQueueSize = Math.max(recvQueue, sendQueue);

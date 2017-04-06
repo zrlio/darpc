@@ -12,19 +12,19 @@ import com.ibm.disni.rdma.verbs.IbvWC;
 import com.ibm.disni.rdma.verbs.RdmaCmId;
 import com.ibm.disni.rdma.verbs.SVCPollCq;
 
-public class RpcClientEndpoint<R extends RpcMessage, T extends RpcMessage> extends RpcEndpoint<R,T> {
+public class DaRPCClientEndpoint<R extends DaRPCMessage, T extends DaRPCMessage> extends DaRPCEndpoint<R,T> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	
-	private ConcurrentHashMap<Integer, RpcFuture<R,T>> pendingFutures;
+	private ConcurrentHashMap<Integer, DaRPCFuture<R,T>> pendingFutures;
 	private AtomicInteger ticketCount;
 	private int streamCount;
 	private IbvWC[] wcList;
 	private SVCPollCq poll;	
 	private ReentrantLock lock;	
 
-	public RpcClientEndpoint(RpcEndpointGroup<? extends RpcClientEndpoint<R, T>, R, T> group, RdmaCmId idPriv, boolean serverSide) throws IOException {
+	public DaRPCClientEndpoint(DaRPCEndpointGroup<? extends DaRPCClientEndpoint<R, T>, R, T> group, RdmaCmId idPriv, boolean serverSide) throws IOException {
 		super(group, idPriv, serverSide);
-		this.pendingFutures = new ConcurrentHashMap<Integer, RpcFuture<R,T>>();
+		this.pendingFutures = new ConcurrentHashMap<Integer, DaRPCFuture<R,T>>();
 		this.ticketCount = new AtomicInteger(0);
 		this.streamCount = 1;
 		this.lock = new ReentrantLock();		
@@ -41,14 +41,14 @@ public class RpcClientEndpoint<R extends RpcMessage, T extends RpcMessage> exten
 		this.poll = cq.poll(wcList, wcList.length);			
 	}	
 	
-	public RpcStream<R, T> createStream() throws IOException {
+	public DaRPCStream<R, T> createStream() throws IOException {
 		int streamId = this.streamCount;
-		RpcStream<R,T> stream = new RpcStream<R,T>(this, streamId);
+		DaRPCStream<R,T> stream = new DaRPCStream<R,T>(this, streamId);
 		streamCount++;
 		return stream;
 	}	
 	
-	int sendRequest(RpcFuture<R,T> future) throws IOException {
+	int sendRequest(DaRPCFuture<R,T> future) throws IOException {
 		int ticket = getAndIncrement();
 		future.stamp(ticket);
 		pendingFutures.put(future.getTicket(), future);
@@ -60,7 +60,7 @@ public class RpcClientEndpoint<R extends RpcMessage, T extends RpcMessage> exten
 
 	@Override
 	public void dispatchReceive(ByteBuffer recvBuffer, int ticket, int recvIndex) throws IOException {
-		RpcFuture<R, T> future = pendingFutures.get(ticket);
+		DaRPCFuture<R, T> future = pendingFutures.get(ticket);
 		if (future == null){
 			logger.info("no pending future.. ");
 			throw new IOException("no pending future.. ");
@@ -76,7 +76,7 @@ public class RpcClientEndpoint<R extends RpcMessage, T extends RpcMessage> exten
 
 	@Override
 	public void dispatchSend(int ticket) throws IOException {
-		RpcFuture<R, T> future = pendingFutures.get(ticket);
+		DaRPCFuture<R, T> future = pendingFutures.get(ticket);
 		if (future == null){
 			logger.info("no pending future.. ");
 			throw new IOException("no pending future.. ");

@@ -10,32 +10,32 @@ import org.slf4j.LoggerFactory;
 import com.ibm.disni.rdma.verbs.RdmaCmEvent;
 import com.ibm.disni.rdma.verbs.RdmaCmId;
 
-public class RpcServerEndpoint<R extends RpcMessage, T extends RpcMessage> extends RpcEndpoint<R,T> {
+public class DaRPCServerEndpoint<R extends DaRPCMessage, T extends DaRPCMessage> extends DaRPCEndpoint<R,T> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	
-	private RpcServerGroup<R, T> group;
-	private ArrayBlockingQueue<RpcServerEvent<R,T>> eventPool;
-	private ArrayBlockingQueue<RpcServerEvent<R,T>> lazyEvents;
+	private DaRPCServerGroup<R, T> group;
+	private ArrayBlockingQueue<DaRPCServerEvent<R,T>> eventPool;
+	private ArrayBlockingQueue<DaRPCServerEvent<R,T>> lazyEvents;
 	private int getClusterId;
 	
-	public RpcServerEndpoint(RpcServerGroup<R, T> group, RdmaCmId idPriv, boolean serverSide) throws IOException {
+	public DaRPCServerEndpoint(DaRPCServerGroup<R, T> group, RdmaCmId idPriv, boolean serverSide) throws IOException {
 		super(group, idPriv, serverSide);
 		this.group = group;
 		this.getClusterId = group.newClusterId();
-		this.eventPool = new ArrayBlockingQueue<RpcServerEvent<R,T>>(group.recvQueueSize());
-		this.lazyEvents = new ArrayBlockingQueue<RpcServerEvent<R,T>>(group.recvQueueSize());
+		this.eventPool = new ArrayBlockingQueue<DaRPCServerEvent<R,T>>(group.recvQueueSize());
+		this.lazyEvents = new ArrayBlockingQueue<DaRPCServerEvent<R,T>>(group.recvQueueSize());
 	}
 
 	public void init() throws IOException {
 		super.init();
 		for(int i = 0; i < group.recvQueueSize(); i++){
-			RpcServerEvent<R,T> event = new RpcServerEvent<R,T>(this, group.createRequest(), group.createResponse());
+			DaRPCServerEvent<R,T> event = new DaRPCServerEvent<R,T>(this, group.createRequest(), group.createResponse());
 			this.eventPool.add(event);
 			
 		}
 	}
 	
-	void sendResponse(RpcServerEvent<R,T> event) throws IOException {
+	void sendResponse(DaRPCServerEvent<R,T> event) throws IOException {
 		if (sendMessage(event.getSendMessage(), event.getTicket())){
 			eventPool.add(event);
 		} else {
@@ -64,7 +64,7 @@ public class RpcServerEndpoint<R extends RpcMessage, T extends RpcMessage> exten
 	}
 	
 	public void dispatchReceive(ByteBuffer recvBuffer, int ticket, int recvIndex) throws IOException {
-		RpcServerEvent<R,T> event = eventPool.poll();
+		DaRPCServerEvent<R,T> event = eventPool.poll();
 		if (event == null){
 			logger.info("no free events, must be overrunning server.. ");
 			throw new IOException("no free events, must be overrunning server.. ");
@@ -77,7 +77,7 @@ public class RpcServerEndpoint<R extends RpcMessage, T extends RpcMessage> exten
 	
 	public void dispatchSend(int ticket) throws IOException {
 		freeSend(ticket);		
-		RpcServerEvent<R,T> event = lazyEvents.poll();
+		DaRPCServerEvent<R,T> event = lazyEvents.poll();
 		if (event != null){
 			sendResponse(event);
 		}

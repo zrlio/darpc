@@ -22,11 +22,17 @@
 package com.ibm.darpc;
 
 import java.io.IOException;
-import java.nio.ByteBuffer;
+import com.ibm.disni.rdma.verbs.*;
+import com.ibm.disni.rdma.*;
 
-public interface RpcMessage {
-	public int write(ByteBuffer buffer) throws IOException;
-	public void update(ByteBuffer buffer) throws IOException;
-	public int size();	
-
+public class DaRPCCluster<R extends DaRPCMessage, T extends DaRPCMessage> extends RdmaCqProcessor<DaRPCEndpoint<R,T>>{
+	public DaRPCCluster(IbvContext context, int cqSize, int wrSize, long affinity, int clusterId,
+			int timeout, boolean polling) throws IOException {
+		super(context, cqSize, wrSize, affinity, clusterId, timeout, polling);
+	}
+	
+	@Override
+	public void dispatchCqEvent(DaRPCEndpoint<R,T> endpoint, IbvWC wc) throws IOException {
+		endpoint.dispatchCqEvent(wc);
+	}	
 }
