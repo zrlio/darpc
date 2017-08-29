@@ -43,10 +43,14 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 	public abstract void dispatchSend(int ticket) throws IOException;
 	
 	private DaRPCEndpointGroup<? extends DaRPCEndpoint<R,T>, R, T> rpcGroup;
+	private ByteBuffer dataBuffer;
+	private IbvMr dataMr;
+	private int sendBufferOffset;
+	private ByteBuffer receiveBuffer;
+	private ByteBuffer sendBuffer;
 	private ByteBuffer[] recvBufs;
 	private ByteBuffer[] sendBufs;
-	private IbvMr[] recvMRs;
-	private IbvMr[] sendMRs;
+	private int singleBufferSize;
 	private SVCPostRecv[] recvCall;
 	private SVCPostSend[] sendCall;
 	private ConcurrentHashMap<Integer, SVCPostSend> pendingPostSend;
@@ -71,8 +75,6 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		this.sendBufs = new ByteBuffer[pipelineLength];
 		this.recvCall = new SVCPostRecv[pipelineLength];
 		this.sendCall = new SVCPostSend[pipelineLength];
-		this.recvMRs = new IbvMr[pipelineLength];
-		this.sendMRs = new IbvMr[pipelineLength];
 		this.ticketCount = new AtomicLong(0);
 		this.messagesSent = new AtomicLong(0);
 		this.messagesReceived = new AtomicLong(0);
@@ -80,23 +82,48 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 	}
 	
 	public void init() throws IOException {
-		for(int i = 0; i < pipelineLength; i++){
-			recvBufs[i] = ByteBuffer.allocateDirect(4 + bufferSize);
-			sendBufs[i] = ByteBuffer.allocateDirect(4 + bufferSize);
-			this.recvCall[i] = setupRecvTask(recvBufs[i], i);
-			this.sendCall[i] = setupSendTask(sendBufs[i], i);
+		this.singleBufferSize = 4 + bufferSize;
+		this.sendBufferOffset = pipelineLength * singleBufferSize;
+
+		/* Main data buffer for sends and receives. Will be split into two regions,
+		 * one fo sends and one for receives.
+		 */
+		dataBuffer = ByteBuffer.allocateDirect(pipelineLength * singleBufferSize * 2);
+		/* Only do one memory registration with the IB card. */
+		dataMr = registerMemory(dataBuffer).execute().free().getMr();
+
+		/* Receive memory region is the first half of the main buffer. */
+		dataBuffer.position(0);
+		receiveBuffer = dataBuffer.slice();
+		receiveBuffer.limit(this.sendBufferOffset);
+
+		/* Send memory region is the second half of the main buffer. */
+		dataBuffer.position(this.sendBufferOffset);
+		sendBuffer = dataBuffer.slice();
+		sendBuffer.limit(this.sendBufferOffset);
+
+		for(int i = 0; i < pipelineLength; i++) {
+			/* Create single receive buffers within the receive region in form of slices. */
+			receiveBuffer.position(i * this.singleBufferSize);
+			recvBufs[i] = receiveBuffer.slice();
+			recvBufs[i].limit(this.singleBufferSize);
+
+			/* Create single send buffers within the send region in form of slices. */
+			sendBuffer.position(i * this.singleBufferSize);
+			sendBufs[i] = sendBuffer.slice();
+			sendBufs[i].limit(this.singleBufferSize);
+
+			this.recvCall[i] = setupRecvTask(recvBufs[i], i, this.singleBufferSize, dataMr.getLkey());
+			this.sendCall[i] = setupSendTask(sendBufs[i], i, this.singleBufferSize, dataMr.getLkey());
 			freePostSend.add(sendCall[i]);
 			recvCall[i].execute();
 		}
 	}
-	
+
 	@Override
 	public synchronized void close() throws IOException, InterruptedException {
 		super.close();
-		for(int i = 0; i < pipelineLength; i++){
-			deregisterMemory(recvMRs[i]);
-			deregisterMemory(sendMRs[i]);
-		}
+		deregisterMemory(dataMr);
 	}	
 	
 	public long getMessagesSent() {
@@ -166,47 +193,43 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		}		
 	}	
 	
-	private SVCPostSend setupSendTask(ByteBuffer sendBuf, int wrid) throws IOException {
+	private SVCPostSend setupSendTask(ByteBuffer sendBuf, int wrid, int bufLen,
+			int lkey) throws IOException {
 		ArrayList<IbvSendWR> sendWRs = new ArrayList<IbvSendWR>(1);
 		LinkedList<IbvSge> sgeList = new LinkedList<IbvSge>();
-		
-		IbvMr mr = registerMemory(sendBuf).execute().free().getMr();
-		sendMRs[wrid] = mr;
+
 		IbvSge sge = new IbvSge();
-		sge.setAddr(mr.getAddr());
-		sge.setLength(mr.getLength());
-		int lkey = mr.getLkey();
+		sge.setAddr(((sun.nio.ch.DirectBuffer) sendBuf).address());
+		sge.setLength(bufLen);
 		sge.setLkey(lkey);
 		sgeList.add(sge);
-	
+
 		IbvSendWR sendWR = new IbvSendWR();
 		sendWR.setSg_list(sgeList);
 		sendWR.setWr_id(wrid);
 		sendWRs.add(sendWR);
 		sendWR.setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
 		sendWR.setOpcode(IbvSendWR.IbvWrOcode.IBV_WR_SEND.ordinal());
-		
+
 		return postSend(sendWRs);
 	}
 
-	private SVCPostRecv setupRecvTask(ByteBuffer recvBuf, int wrid) throws IOException {
+	private SVCPostRecv setupRecvTask(ByteBuffer recvBuf, int wrid, int bufLen,
+			int lkey) throws IOException {
 		ArrayList<IbvRecvWR> recvWRs = new ArrayList<IbvRecvWR>(1);
 		LinkedList<IbvSge> sgeList = new LinkedList<IbvSge>();
-		
-		IbvMr mr = registerMemory(recvBuf).execute().free().getMr();
-		recvMRs[wrid] = mr;
+
 		IbvSge sge = new IbvSge();
-		sge.setAddr(mr.getAddr());
-		sge.setLength(mr.getLength());
-		int lkey = mr.getLkey();
+		sge.setAddr(((sun.nio.ch.DirectBuffer) recvBuf).address());
+		sge.setLength(bufLen);
 		sge.setLkey(lkey);
 		sgeList.add(sge);
-		
+
 		IbvRecvWR recvWR = new IbvRecvWR();
 		recvWR.setWr_id(wrid);
 		recvWR.setSg_list(sgeList);
 		recvWRs.add(recvWR);
-	
+
 		return postRecv(recvWRs);
 	}
 }
