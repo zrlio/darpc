@@ -34,26 +34,31 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.ibm.disni.rdma.verbs.*;
+import com.ibm.disni.util.MemoryUtils;
 import com.ibm.disni.rdma.*;
 
 public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessage> extends RdmaEndpoint {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
+	private static final int headerSize = 4;
 	
 	public abstract void dispatchReceive(ByteBuffer buffer, int ticket, int recvIndex) throws IOException;
 	public abstract void dispatchSend(int ticket) throws IOException;
 	
 	private DaRPCEndpointGroup<? extends DaRPCEndpoint<R,T>, R, T> rpcGroup;
+	private ByteBuffer dataBuffer;
+	private IbvMr dataMr;
+	private ByteBuffer receiveBuffer;
+	private ByteBuffer sendBuffer;
 	private ByteBuffer[] recvBufs;
 	private ByteBuffer[] sendBufs;
-	private IbvMr[] recvMRs;
-	private IbvMr[] sendMRs;
 	private SVCPostRecv[] recvCall;
 	private SVCPostSend[] sendCall;
 	private ConcurrentHashMap<Integer, SVCPostSend> pendingPostSend;
 	private ArrayBlockingQueue<SVCPostSend> freePostSend;
 	private AtomicLong ticketCount;
 	private int pipelineLength;
-	private int bufferSize;
+	private int payloadSize;
+	private int rawBufferSize;
 	private int maxinline;
 	private AtomicLong messagesSent;
 	private AtomicLong messagesReceived;
@@ -63,7 +68,8 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		super(endpointGroup, idPriv, serverSide);
 		this.rpcGroup = endpointGroup;
 		this.maxinline = rpcGroup.getMaxInline();
-		this.bufferSize = rpcGroup.getBufferSize();
+		this.payloadSize = rpcGroup.getBufferSize();
+		this.rawBufferSize = headerSize + this.payloadSize;
 		this.pipelineLength = rpcGroup.recvQueueSize();
 		this.freePostSend = new ArrayBlockingQueue<SVCPostSend>(pipelineLength);
 		this.pendingPostSend = new ConcurrentHashMap<Integer, SVCPostSend>();
@@ -71,32 +77,53 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		this.sendBufs = new ByteBuffer[pipelineLength];
 		this.recvCall = new SVCPostRecv[pipelineLength];
 		this.sendCall = new SVCPostSend[pipelineLength];
-		this.recvMRs = new IbvMr[pipelineLength];
-		this.sendMRs = new IbvMr[pipelineLength];
 		this.ticketCount = new AtomicLong(0);
 		this.messagesSent = new AtomicLong(0);
 		this.messagesReceived = new AtomicLong(0);
-		logger.info("RPC client endpoint, with buffer size = " + bufferSize + ", pipeline " + pipelineLength);
+		logger.info("RPC client endpoint, with payload buffer size = " + payloadSize + ", pipeline " + pipelineLength);
 	}
 	
 	public void init() throws IOException {
-		for(int i = 0; i < pipelineLength; i++){
-			recvBufs[i] = ByteBuffer.allocateDirect(4 + bufferSize);
-			sendBufs[i] = ByteBuffer.allocateDirect(4 + bufferSize);
-			this.recvCall[i] = setupRecvTask(recvBufs[i], i);
-			this.sendCall[i] = setupSendTask(sendBufs[i], i);
+		int sendBufferOffset = pipelineLength * rawBufferSize;
+
+		/* Main data buffer for sends and receives. Will be split into two regions,
+		 * one for sends and one for receives.
+		 */
+		dataBuffer = ByteBuffer.allocateDirect(pipelineLength * rawBufferSize * 2);
+		/* Only do one memory registration with the IB card. */
+		dataMr = registerMemory(dataBuffer).execute().free().getMr();
+
+		/* Receive memory region is the first half of the main buffer. */
+		dataBuffer.limit(dataBuffer.position() + sendBufferOffset);
+		receiveBuffer = dataBuffer.slice();
+
+		/* Send memory region is the second half of the main buffer. */
+		dataBuffer.position(sendBufferOffset);
+		dataBuffer.limit(dataBuffer.position() + sendBufferOffset);
+		sendBuffer = dataBuffer.slice();
+
+		for(int i = 0; i < pipelineLength; i++) {
+			/* Create single receive buffers within the receive region in form of slices. */
+			receiveBuffer.position(i * rawBufferSize);
+			receiveBuffer.limit(receiveBuffer.position() + rawBufferSize);
+			recvBufs[i] = receiveBuffer.slice();
+
+			/* Create single send buffers within the send region in form of slices. */
+			sendBuffer.position(i * rawBufferSize);
+			sendBuffer.limit(sendBuffer.position() + rawBufferSize);
+			sendBufs[i] = sendBuffer.slice();
+
+			this.recvCall[i] = setupRecvTask(i);
+			this.sendCall[i] = setupSendTask(i);
 			freePostSend.add(sendCall[i]);
 			recvCall[i].execute();
 		}
 	}
-	
+
 	@Override
 	public synchronized void close() throws IOException, InterruptedException {
 		super.close();
-		for(int i = 0; i < pipelineLength; i++){
-			deregisterMemory(recvMRs[i]);
-			deregisterMemory(sendMRs[i]);
-		}
+		deregisterMemory(dataMr);
 	}	
 	
 	public long getMessagesSent() {
@@ -166,47 +193,41 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		}		
 	}	
 	
-	private SVCPostSend setupSendTask(ByteBuffer sendBuf, int wrid) throws IOException {
+	private SVCPostSend setupSendTask(int wrid) throws IOException {
 		ArrayList<IbvSendWR> sendWRs = new ArrayList<IbvSendWR>(1);
 		LinkedList<IbvSge> sgeList = new LinkedList<IbvSge>();
-		
-		IbvMr mr = registerMemory(sendBuf).execute().free().getMr();
-		sendMRs[wrid] = mr;
+
 		IbvSge sge = new IbvSge();
-		sge.setAddr(mr.getAddr());
-		sge.setLength(mr.getLength());
-		int lkey = mr.getLkey();
-		sge.setLkey(lkey);
+		sge.setAddr(MemoryUtils.getAddress(sendBufs[wrid]));
+		sge.setLength(rawBufferSize);
+		sge.setLkey(dataMr.getLkey());
 		sgeList.add(sge);
-	
+
 		IbvSendWR sendWR = new IbvSendWR();
 		sendWR.setSg_list(sgeList);
 		sendWR.setWr_id(wrid);
 		sendWRs.add(sendWR);
 		sendWR.setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
 		sendWR.setOpcode(IbvSendWR.IbvWrOcode.IBV_WR_SEND.ordinal());
-		
+
 		return postSend(sendWRs);
 	}
 
-	private SVCPostRecv setupRecvTask(ByteBuffer recvBuf, int wrid) throws IOException {
+	private SVCPostRecv setupRecvTask(int wrid) throws IOException {
 		ArrayList<IbvRecvWR> recvWRs = new ArrayList<IbvRecvWR>(1);
 		LinkedList<IbvSge> sgeList = new LinkedList<IbvSge>();
-		
-		IbvMr mr = registerMemory(recvBuf).execute().free().getMr();
-		recvMRs[wrid] = mr;
+
 		IbvSge sge = new IbvSge();
-		sge.setAddr(mr.getAddr());
-		sge.setLength(mr.getLength());
-		int lkey = mr.getLkey();
-		sge.setLkey(lkey);
+		sge.setAddr(MemoryUtils.getAddress(recvBufs[wrid]));
+		sge.setLength(rawBufferSize);
+		sge.setLkey(dataMr.getLkey());
 		sgeList.add(sge);
-		
+
 		IbvRecvWR recvWR = new IbvRecvWR();
 		recvWR.setWr_id(wrid);
 		recvWR.setSg_list(sgeList);
 		recvWRs.add(recvWR);
-	
+
 		return postRecv(recvWRs);
 	}
 }
