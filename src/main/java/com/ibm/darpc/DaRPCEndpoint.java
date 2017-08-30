@@ -34,6 +34,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.ibm.disni.rdma.verbs.*;
+import com.ibm.disni.util.MemoryUtils;
 import com.ibm.disni.rdma.*;
 
 public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessage> extends RdmaEndpoint {
@@ -45,19 +46,19 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 	private DaRPCEndpointGroup<? extends DaRPCEndpoint<R,T>, R, T> rpcGroup;
 	private ByteBuffer dataBuffer;
 	private IbvMr dataMr;
-	private int sendBufferOffset;
 	private ByteBuffer receiveBuffer;
 	private ByteBuffer sendBuffer;
 	private ByteBuffer[] recvBufs;
 	private ByteBuffer[] sendBufs;
-	private int singleBufferSize;
 	private SVCPostRecv[] recvCall;
 	private SVCPostSend[] sendCall;
 	private ConcurrentHashMap<Integer, SVCPostSend> pendingPostSend;
 	private ArrayBlockingQueue<SVCPostSend> freePostSend;
 	private AtomicLong ticketCount;
 	private int pipelineLength;
-	private int bufferSize;
+	private int payloadSize;
+	private static final int headerSize = 4;
+	private int rawBufferSize;
 	private int maxinline;
 	private AtomicLong messagesSent;
 	private AtomicLong messagesReceived;
@@ -67,7 +68,8 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		super(endpointGroup, idPriv, serverSide);
 		this.rpcGroup = endpointGroup;
 		this.maxinline = rpcGroup.getMaxInline();
-		this.bufferSize = rpcGroup.getBufferSize();
+		this.payloadSize = rpcGroup.getBufferSize();
+		this.rawBufferSize = headerSize + this.payloadSize;
 		this.pipelineLength = rpcGroup.recvQueueSize();
 		this.freePostSend = new ArrayBlockingQueue<SVCPostSend>(pipelineLength);
 		this.pendingPostSend = new ConcurrentHashMap<Integer, SVCPostSend>();
@@ -78,43 +80,42 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		this.ticketCount = new AtomicLong(0);
 		this.messagesSent = new AtomicLong(0);
 		this.messagesReceived = new AtomicLong(0);
-		logger.info("RPC client endpoint, with buffer size = " + bufferSize + ", pipeline " + pipelineLength);
+		logger.info("RPC client endpoint, with payload buffer size = " + payloadSize + ", pipeline " + pipelineLength);
 	}
 	
 	public void init() throws IOException {
-		this.singleBufferSize = 4 + bufferSize;
-		this.sendBufferOffset = pipelineLength * singleBufferSize;
+		int sendBufferOffset = pipelineLength * rawBufferSize;
 
 		/* Main data buffer for sends and receives. Will be split into two regions,
-		 * one fo sends and one for receives.
+		 * one for sends and one for receives.
 		 */
-		dataBuffer = ByteBuffer.allocateDirect(pipelineLength * singleBufferSize * 2);
+		dataBuffer = ByteBuffer.allocateDirect(pipelineLength * rawBufferSize * 2);
 		/* Only do one memory registration with the IB card. */
 		dataMr = registerMemory(dataBuffer).execute().free().getMr();
 
 		/* Receive memory region is the first half of the main buffer. */
 		dataBuffer.position(0);
+		dataBuffer.limit(dataBuffer.position() + sendBufferOffset);
 		receiveBuffer = dataBuffer.slice();
-		receiveBuffer.limit(this.sendBufferOffset);
 
 		/* Send memory region is the second half of the main buffer. */
-		dataBuffer.position(this.sendBufferOffset);
+		dataBuffer.position(sendBufferOffset);
+		dataBuffer.limit(dataBuffer.position() + sendBufferOffset);
 		sendBuffer = dataBuffer.slice();
-		sendBuffer.limit(this.sendBufferOffset);
 
 		for(int i = 0; i < pipelineLength; i++) {
 			/* Create single receive buffers within the receive region in form of slices. */
-			receiveBuffer.position(i * this.singleBufferSize);
+			receiveBuffer.position(i * rawBufferSize);
+			receiveBuffer.limit(receiveBuffer.position() + rawBufferSize);
 			recvBufs[i] = receiveBuffer.slice();
-			recvBufs[i].limit(this.singleBufferSize);
 
 			/* Create single send buffers within the send region in form of slices. */
-			sendBuffer.position(i * this.singleBufferSize);
+			sendBuffer.position(i * rawBufferSize);
+			sendBuffer.limit(sendBuffer.position() + rawBufferSize);
 			sendBufs[i] = sendBuffer.slice();
-			sendBufs[i].limit(this.singleBufferSize);
 
-			this.recvCall[i] = setupRecvTask(recvBufs[i], i, this.singleBufferSize, dataMr.getLkey());
-			this.sendCall[i] = setupSendTask(sendBufs[i], i, this.singleBufferSize, dataMr.getLkey());
+			this.recvCall[i] = setupRecvTask(i);
+			this.sendCall[i] = setupSendTask(i);
 			freePostSend.add(sendCall[i]);
 			recvCall[i].execute();
 		}
@@ -193,15 +194,14 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		}		
 	}	
 	
-	private SVCPostSend setupSendTask(ByteBuffer sendBuf, int wrid, int bufLen,
-			int lkey) throws IOException {
+	private SVCPostSend setupSendTask(int wrid) throws IOException {
 		ArrayList<IbvSendWR> sendWRs = new ArrayList<IbvSendWR>(1);
 		LinkedList<IbvSge> sgeList = new LinkedList<IbvSge>();
 
 		IbvSge sge = new IbvSge();
-		sge.setAddr(((sun.nio.ch.DirectBuffer) sendBuf).address());
-		sge.setLength(bufLen);
-		sge.setLkey(lkey);
+		sge.setAddr(MemoryUtils.getAddress(sendBufs[wrid]));
+		sge.setLength(rawBufferSize);
+		sge.setLkey(dataMr.getLkey());
 		sgeList.add(sge);
 
 		IbvSendWR sendWR = new IbvSendWR();
@@ -214,15 +214,14 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		return postSend(sendWRs);
 	}
 
-	private SVCPostRecv setupRecvTask(ByteBuffer recvBuf, int wrid, int bufLen,
-			int lkey) throws IOException {
+	private SVCPostRecv setupRecvTask(int wrid) throws IOException {
 		ArrayList<IbvRecvWR> recvWRs = new ArrayList<IbvRecvWR>(1);
 		LinkedList<IbvSge> sgeList = new LinkedList<IbvSge>();
 
 		IbvSge sge = new IbvSge();
-		sge.setAddr(((sun.nio.ch.DirectBuffer) recvBuf).address());
-		sge.setLength(bufLen);
-		sge.setLkey(lkey);
+		sge.setAddr(MemoryUtils.getAddress(recvBufs[wrid]));
+		sge.setLength(rawBufferSize);
+		sge.setLkey(dataMr.getLkey());
 		sgeList.add(sge);
 
 		IbvRecvWR recvWR = new IbvRecvWR();
