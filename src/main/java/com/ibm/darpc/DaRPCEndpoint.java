@@ -39,6 +39,7 @@ import com.ibm.disni.rdma.*;
 
 public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessage> extends RdmaEndpoint {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
+	private static final int headerSize = 4;
 	
 	public abstract void dispatchReceive(ByteBuffer buffer, int ticket, int recvIndex) throws IOException;
 	public abstract void dispatchSend(int ticket) throws IOException;
@@ -57,7 +58,6 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 	private AtomicLong ticketCount;
 	private int pipelineLength;
 	private int payloadSize;
-	private static final int headerSize = 4;
 	private int rawBufferSize;
 	private int maxinline;
 	private AtomicLong messagesSent;
@@ -94,7 +94,6 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		dataMr = registerMemory(dataBuffer).execute().free().getMr();
 
 		/* Receive memory region is the first half of the main buffer. */
-		dataBuffer.position(0);
 		dataBuffer.limit(dataBuffer.position() + sendBufferOffset);
 		receiveBuffer = dataBuffer.slice();
 
