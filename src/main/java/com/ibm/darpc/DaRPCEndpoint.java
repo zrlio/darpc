@@ -46,7 +46,7 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 	
 	private DaRPCEndpointGroup<? extends DaRPCEndpoint<R,T>, R, T> rpcGroup;
 	private ByteBuffer dataBuffer;
-	private IbvMr dataMr;
+	private int lkey;
 	private ByteBuffer receiveBuffer;
 	private ByteBuffer sendBuffer;
 	private ByteBuffer[] recvBufs;
@@ -56,7 +56,8 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 	private ConcurrentHashMap<Integer, SVCPostSend> pendingPostSend;
 	private ArrayBlockingQueue<SVCPostSend> freePostSend;
 	private AtomicLong ticketCount;
-	private int pipelineLength;
+	private int sendPipelineLength;
+	private int recvPipelineLength;
 	private int payloadSize;
 	private int rawBufferSize;
 	private int maxinline;
@@ -70,28 +71,33 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		this.maxinline = rpcGroup.getMaxInline();
 		this.payloadSize = rpcGroup.getBufferSize();
 		this.rawBufferSize = headerSize + this.payloadSize;
-		this.pipelineLength = rpcGroup.recvQueueSize();
-		this.freePostSend = new ArrayBlockingQueue<SVCPostSend>(pipelineLength);
+		this.sendPipelineLength = rpcGroup.sendQueueSize();
+		this.recvPipelineLength = rpcGroup.recvQueueSize();
+		this.freePostSend = new ArrayBlockingQueue<SVCPostSend>(sendPipelineLength);
 		this.pendingPostSend = new ConcurrentHashMap<Integer, SVCPostSend>();
-		this.recvBufs = new ByteBuffer[pipelineLength];
-		this.sendBufs = new ByteBuffer[pipelineLength];
-		this.recvCall = new SVCPostRecv[pipelineLength];
-		this.sendCall = new SVCPostSend[pipelineLength];
+		this.recvBufs = new ByteBuffer[recvPipelineLength];
+		this.sendBufs = new ByteBuffer[sendPipelineLength];
+		this.recvCall = new SVCPostRecv[recvPipelineLength];
+		this.sendCall = new SVCPostSend[sendPipelineLength];
 		this.ticketCount = new AtomicLong(0);
 		this.messagesSent = new AtomicLong(0);
 		this.messagesReceived = new AtomicLong(0);
-		logger.info("RPC client endpoint, with payload buffer size = " + payloadSize + ", pipeline " + pipelineLength);
+		logger.info("RPC client endpoint, with payload buffer size = " + payloadSize + ", send pipeline "
+					+ sendPipelineLength + ", receive pipeline " + recvPipelineLength);
 	}
 	
 	public void init() throws IOException {
-		int sendBufferOffset = pipelineLength * rawBufferSize;
+		int sendBufferOffset = recvPipelineLength * rawBufferSize;
 
 		/* Main data buffer for sends and receives. Will be split into two regions,
 		 * one for sends and one for receives.
 		 */
-		dataBuffer = ByteBuffer.allocateDirect(pipelineLength * rawBufferSize * 2);
-		/* Only do one memory registration with the IB card. */
-		dataMr = registerMemory(dataBuffer).execute().free().getMr();
+		try {
+			dataBuffer = rpcGroup.getWRBuffer(this, sendPipelineLength * rawBufferSize + recvPipelineLength * rawBufferSize);
+			lkey = rpcGroup.getLKey(this, dataBuffer);
+		} catch (Exception e) {
+			throw new IOException(e);
+		}
 
 		/* Receive memory region is the first half of the main buffer. */
 		dataBuffer.limit(dataBuffer.position() + sendBufferOffset);
@@ -99,31 +105,33 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 
 		/* Send memory region is the second half of the main buffer. */
 		dataBuffer.position(sendBufferOffset);
-		dataBuffer.limit(dataBuffer.position() + sendBufferOffset);
+		dataBuffer.limit(dataBuffer.capacity());
 		sendBuffer = dataBuffer.slice();
 
-		for(int i = 0; i < pipelineLength; i++) {
-			/* Create single receive buffers within the receive region in form of slices. */
-			receiveBuffer.position(i * rawBufferSize);
-			receiveBuffer.limit(receiveBuffer.position() + rawBufferSize);
-			recvBufs[i] = receiveBuffer.slice();
-
+		for(int i = 0; i < sendPipelineLength; i++) {
 			/* Create single send buffers within the send region in form of slices. */
 			sendBuffer.position(i * rawBufferSize);
 			sendBuffer.limit(sendBuffer.position() + rawBufferSize);
 			sendBufs[i] = sendBuffer.slice();
 
-			this.recvCall[i] = setupRecvTask(i);
 			this.sendCall[i] = setupSendTask(i);
 			freePostSend.add(sendCall[i]);
+		}
+		for(int i = 0; i < recvPipelineLength; i++) {
+			/* Create single receive buffers within the receive region in form of slices. */
+			receiveBuffer.position(i * rawBufferSize);
+			receiveBuffer.limit(receiveBuffer.position() + rawBufferSize);
+			recvBufs[i] = receiveBuffer.slice();
+
+			this.recvCall[i] = setupRecvTask(i);
 			recvCall[i].execute();
 		}
 	}
 
 	@Override
 	public synchronized void close() throws IOException, InterruptedException {
+		rpcGroup.freeBuffer(this, dataBuffer);
 		super.close();
-		deregisterMemory(dataMr);
 	}	
 	
 	public long getMessagesSent() {
@@ -139,8 +147,8 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		if (postSend != null){
 			int index = (int) postSend.getWrMod(0).getWr_id();
 			sendBufs[index].putInt(0, ticket);
-			sendBufs[index].position(4);
-			int written = 4 + message.write(sendBufs[index]);
+			sendBufs[index].position(headerSize);
+			int written = headerSize + message.write(sendBufs[index]);
 			postSend.getWrMod(0).getSgeMod(0).setLength(written);
 			postSend.getWrMod(0).setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
 			if (written <= maxinline) {
@@ -180,7 +188,7 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 			int index = (int) wc.getWr_id();
 			ByteBuffer recvBuffer = recvBufs[index];
 			int ticket = recvBuffer.getInt(0);
-			recvBuffer.position(4);
+			recvBuffer.position(headerSize);
 			dispatchReceive(recvBuffer, ticket, index);
 		} else if (wc.getOpcode() == 0) {
 			//send completion
@@ -200,7 +208,7 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		IbvSge sge = new IbvSge();
 		sge.setAddr(MemoryUtils.getAddress(sendBufs[wrid]));
 		sge.setLength(rawBufferSize);
-		sge.setLkey(dataMr.getLkey());
+		sge.setLkey(lkey);
 		sgeList.add(sge);
 
 		IbvSendWR sendWR = new IbvSendWR();
@@ -220,7 +228,7 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		IbvSge sge = new IbvSge();
 		sge.setAddr(MemoryUtils.getAddress(recvBufs[wrid]));
 		sge.setLength(rawBufferSize);
-		sge.setLkey(dataMr.getLkey());
+		sge.setLkey(lkey);
 		sgeList.add(sge);
 
 		IbvRecvWR recvWR = new IbvRecvWR();

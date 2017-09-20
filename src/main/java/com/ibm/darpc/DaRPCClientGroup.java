@@ -9,15 +9,15 @@ import com.ibm.disni.rdma.verbs.IbvQP;
 import com.ibm.disni.rdma.verbs.RdmaCmId;
 
 public class DaRPCClientGroup<R extends DaRPCMessage, T extends DaRPCMessage> extends DaRPCEndpointGroup<DaRPCClientEndpoint<R,T>, R, T> {
-	public static <R extends DaRPCMessage, T extends DaRPCMessage> DaRPCClientGroup<R, T> createClientGroup(DaRPCProtocol<R, T> protocol, int timeout, int maxinline, int recvQueue, int sendQueue) throws Exception {
-		DaRPCClientGroup<R,T> group = new DaRPCClientGroup<R,T>(protocol, timeout, maxinline, recvQueue, sendQueue);
+	public static <R extends DaRPCMessage, T extends DaRPCMessage> DaRPCClientGroup<R, T> createClientGroup(DaRPCProtocol<R, T> protocol, DaRPCMemPool memPool, int timeout, int maxinline, int recvQueue, int sendQueue) throws Exception {
+		DaRPCClientGroup<R,T> group = new DaRPCClientGroup<R,T>(protocol, memPool, timeout, maxinline, recvQueue, sendQueue);
 		group.init(new RpcClientFactory<R,T>(group));
 		return group;
 	}	
 	
-	private DaRPCClientGroup(DaRPCProtocol<R, T> protocol, int timeout, int maxinline, int recvQueue, int sendQueue)
+	private DaRPCClientGroup(DaRPCProtocol<R, T> protocol, DaRPCMemPool memPool, int timeout, int maxinline, int recvQueue, int sendQueue)
 			throws Exception {
-		super(protocol, timeout, maxinline, recvQueue, sendQueue);
+		super(protocol, memPool, timeout, maxinline, recvQueue, sendQueue);
 	}
 	
 

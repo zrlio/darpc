@@ -14,6 +14,7 @@ public class DaRPCServerEndpoint<R extends DaRPCMessage, T extends DaRPCMessage>
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	
 	private DaRPCServerGroup<R, T> group;
+	private int eventPoolSize;
 	private ArrayBlockingQueue<DaRPCServerEvent<R,T>> eventPool;
 	private ArrayBlockingQueue<DaRPCServerEvent<R,T>> lazyEvents;
 	private int getClusterId;
@@ -22,13 +23,15 @@ public class DaRPCServerEndpoint<R extends DaRPCMessage, T extends DaRPCMessage>
 		super(group, idPriv, serverSide);
 		this.group = group;
 		this.getClusterId = group.newClusterId();
+		this.eventPoolSize = Math.max(group.recvQueueSize(), group.sendQueueSize());
 		this.eventPool = new ArrayBlockingQueue<DaRPCServerEvent<R,T>>(group.recvQueueSize());
 		this.lazyEvents = new ArrayBlockingQueue<DaRPCServerEvent<R,T>>(group.recvQueueSize());
+
 	}
 
 	public void init() throws IOException {
 		super.init();
-		for(int i = 0; i < group.recvQueueSize(); i++){
+		for(int i = 0; i < this.eventPoolSize; i++){
 			DaRPCServerEvent<R,T> event = new DaRPCServerEvent<R,T>(this, group.createRequest(), group.createResponse());
 			this.eventPool.add(event);
 			

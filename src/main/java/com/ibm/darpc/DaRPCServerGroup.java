@@ -27,14 +27,17 @@ public class DaRPCServerGroup<R extends DaRPCMessage, T extends DaRPCMessage> ex
 	private int pollSize;
 	private int clusterSize;
 	
-	public static <R extends DaRPCMessage, T extends DaRPCMessage> DaRPCServerGroup<R, T> createServerGroup(DaRPCService<R, T> rpcService, long[] clusterAffinities, int timeout, int maxinline, boolean polling, int recvQueue, int sendQueue, int pollSize, int clusterSize) throws Exception {
-		DaRPCServerGroup<R,T> group = new DaRPCServerGroup<R,T>(rpcService, clusterAffinities, timeout, maxinline, polling, recvQueue, sendQueue, pollSize, clusterSize);
+	public static <R extends DaRPCMessage, T extends DaRPCMessage> DaRPCServerGroup<R, T> createServerGroup(DaRPCService<R, T> rpcService, DaRPCMemPool memPool, long[] clusterAffinities, int timeout, int maxinline, boolean polling,
+																											int recvQueue, int sendQueue, int pollSize, int clusterSize) throws Exception {
+		DaRPCServerGroup<R,T> group = new DaRPCServerGroup<R,T>(rpcService, memPool, clusterAffinities, timeout, maxinline, polling,
+																recvQueue, sendQueue, pollSize, clusterSize);
 		group.init(new RpcServerFactory<R,T>(group));
 		return group;
 	}
 
-	private DaRPCServerGroup(DaRPCService<R, T> rpcService, long[] clusterAffinities, int timeout, int maxinline, boolean polling, int recvQueue, int sendQueue, int pollSize, int clusterSize) throws Exception {
-		super(rpcService, timeout, maxinline, recvQueue, sendQueue);
+	private DaRPCServerGroup(DaRPCService<R, T> rpcService, DaRPCMemPool memPool,long[] clusterAffinities, int timeout, int maxinline,
+							 boolean polling, int recvQueue, int sendQueue, int pollSize, int clusterSize) throws Exception {
+		super(rpcService, memPool, timeout, maxinline, recvQueue, sendQueue);
 		
 		this.rpcService = rpcService;
 		deviceInstance = new ConcurrentHashMap<Integer, DaRPCInstance<R,T>>();

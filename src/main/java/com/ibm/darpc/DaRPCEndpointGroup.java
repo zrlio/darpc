@@ -24,7 +24,7 @@ package com.ibm.darpc;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import java.nio.ByteBuffer;
 import com.ibm.disni.rdma.verbs.*;
 import com.ibm.disni.rdma.*;
 
@@ -38,18 +38,20 @@ public abstract class DaRPCEndpointGroup<E extends DaRPCEndpoint<R,T>, R extends
 	private int timeout;
 	private int bufferSize;
 	private int maxInline;
+	private DaRPCMemPool memPool;
 	
 	public static int getVersion(){
 		return DARPC_VERSION;
 	}	
 	
-	protected DaRPCEndpointGroup(DaRPCProtocol<R,T> protocol, int timeout, int maxinline, int recvQueue, int sendQueue) throws Exception {
+	protected DaRPCEndpointGroup(DaRPCProtocol<R,T> protocol, DaRPCMemPool memPool, int timeout, int maxinline, int recvQueue, int sendQueue) throws Exception {
 		super(timeout);
 		this.recvQueueSize = recvQueue;
-		this.sendQueueSize = Math.max(recvQueue, sendQueue);
+		this.sendQueueSize = sendQueue;
 		this.timeout = timeout;
 		this.bufferSize = Math.max(protocol.createRequest().size(), protocol.createResponse().size());
 		this.maxInline = maxinline;
+		this.memPool = memPool;
 	}	
 	
 	protected synchronized IbvQP createQP(RdmaCmId id, IbvPd pd, IbvCQ cq) throws IOException{
@@ -76,6 +78,7 @@ public abstract class DaRPCEndpointGroup<E extends DaRPCEndpoint<R,T>, R extends
 
 	public void close() throws IOException, InterruptedException {
 		super.close();
+		memPool.close();
 		logger.info("rpc group down");
 	}	
 	
@@ -89,5 +92,17 @@ public abstract class DaRPCEndpointGroup<E extends DaRPCEndpoint<R,T>, R extends
 	
 	public int getMaxInline() {
 		return maxInline;
+	}
+
+	ByteBuffer getWRBuffer(RdmaEndpoint endpoint, int size) throws Exception {
+		return memPool.getBuffer(endpoint, size);
+	}
+
+	void freeBuffer(RdmaEndpoint endpoint, ByteBuffer b) {
+		memPool.freeBuffer(endpoint, b);
+	}
+
+	int getLKey(RdmaEndpoint endpoint, ByteBuffer b) {
+		return memPool.getLKey(endpoint, b);
 	}
 }
