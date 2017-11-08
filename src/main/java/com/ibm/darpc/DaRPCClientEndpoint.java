@@ -62,8 +62,8 @@ public class DaRPCClientEndpoint<R extends DaRPCMessage, T extends DaRPCMessage>
 	public void dispatchReceive(ByteBuffer recvBuffer, int ticket, int recvIndex) throws IOException {
 		DaRPCFuture<R, T> future = pendingFutures.get(ticket);
 		if (future == null){
-			logger.info("no pending future.. ");
-			throw new IOException("no pending future.. ");
+			logger.info("no pending future (receive) for ticket " + ticket);
+			throw new IOException("no pending future (receive) for ticket " + ticket);
 		}		
 		future.getReceiveMessage().update(recvBuffer);
 		postRecv(recvIndex);
@@ -78,8 +78,8 @@ public class DaRPCClientEndpoint<R extends DaRPCMessage, T extends DaRPCMessage>
 	public void dispatchSend(int ticket) throws IOException {
 		DaRPCFuture<R, T> future = pendingFutures.get(ticket);
 		if (future == null){
-			logger.info("no pending future.. ");
-			throw new IOException("no pending future.. ");
+			logger.info("no pending future (send) for ticket " + ticket);
+			throw new IOException("no pending future (send) for ticket " + ticket);
 		}		
 		if (future.touch()){
 			pendingFutures.remove(ticket);
