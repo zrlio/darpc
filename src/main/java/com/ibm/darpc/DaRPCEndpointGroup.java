@@ -32,18 +32,18 @@ import com.ibm.disni.rdma.*;
 public abstract class DaRPCEndpointGroup<E extends DaRPCEndpoint<R,T>, R extends DaRPCMessage, T extends DaRPCMessage> extends RdmaEndpointGroup<E> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	private static int DARPC_VERSION = 50;
-	
+
 	private int recvQueueSize;
 	private int sendQueueSize;
 	private int timeout;
 	private int bufferSize;
 	private int maxInline;
 	private DaRPCMemPool memPool;
-	
+
 	public static int getVersion(){
 		return DARPC_VERSION;
-	}	
-	
+	}
+
 	protected DaRPCEndpointGroup(DaRPCProtocol<R,T> protocol, DaRPCMemPool memPool, int timeout, int maxinline, int recvQueue, int sendQueue) throws Exception {
 		super(timeout);
 		this.recvQueueSize = recvQueue;
@@ -52,8 +52,8 @@ public abstract class DaRPCEndpointGroup<E extends DaRPCEndpoint<R,T>, R extends
 		this.bufferSize = Math.max(protocol.createRequest().size(), protocol.createResponse().size());
 		this.maxInline = maxinline;
 		this.memPool = memPool;
-	}	
-	
+	}
+
 	protected synchronized IbvQP createQP(RdmaCmId id, IbvPd pd, IbvCQ cq) throws IOException{
 		IbvQPInitAttr attr = new IbvQPInitAttr();
 		attr.cap().setMax_recv_wr(recvQueueSize);
@@ -63,33 +63,34 @@ public abstract class DaRPCEndpointGroup<E extends DaRPCEndpoint<R,T>, R extends
 		attr.cap().setMax_inline_data(maxInline);
 		attr.setQp_type(IbvQP.IBV_QPT_RC);
 		attr.setRecv_cq(cq);
-		attr.setSend_cq(cq);		
+		attr.setSend_cq(cq);
 		IbvQP qp = id.createQP(pd, attr);
 		return qp;
 	}
-	
+
 	public int getTimeout() {
 		return timeout;
 	}
-	
+
 	public int getBufferSize() {
 		return bufferSize;
-	}	
+	}
+
 
 	public void close() throws IOException, InterruptedException {
 		super.close();
 		memPool.close();
 		logger.info("rpc group down");
-	}	
-	
+	}
+
 	public int recvQueueSize() {
 		return recvQueueSize;
 	}
-	
+
 	public int sendQueueSize() {
 		return sendQueueSize;
-	}		
-	
+	}
+
 	public int getMaxInline() {
 		return maxInline;
 	}
@@ -98,7 +99,7 @@ public abstract class DaRPCEndpointGroup<E extends DaRPCEndpoint<R,T>, R extends
 		return memPool.getBuffer(endpoint, size);
 	}
 
-	void freeBuffer(RdmaEndpoint endpoint, ByteBuffer b) {
+	void freeBuffer(RdmaEndpoint endpoint, ByteBuffer b) throws IOException {
 		memPool.freeBuffer(endpoint, b);
 	}
 

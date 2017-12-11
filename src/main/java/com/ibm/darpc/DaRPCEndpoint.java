@@ -40,10 +40,10 @@ import com.ibm.disni.rdma.*;
 public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessage> extends RdmaEndpoint {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	private static final int headerSize = 4;
-	
+
 	public abstract void dispatchReceive(ByteBuffer buffer, int ticket, int recvIndex) throws IOException;
 	public abstract void dispatchSend(int ticket) throws IOException;
-	
+
 	private DaRPCEndpointGroup<? extends DaRPCEndpoint<R,T>, R, T> rpcGroup;
 	private ByteBuffer dataBuffer;
 	private int lkey;
@@ -56,15 +56,15 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 	private ConcurrentHashMap<Integer, SVCPostSend> pendingPostSend;
 	private ArrayBlockingQueue<SVCPostSend> freePostSend;
 	private AtomicLong ticketCount;
-	private int sendPipelineLength;
-	private int recvPipelineLength;
+	final private int sendPipelineLength;
+	final private int recvPipelineLength;
 	private int payloadSize;
 	private int rawBufferSize;
 	private int maxinline;
 	private AtomicLong messagesSent;
 	private AtomicLong messagesReceived;
-	
-	
+
+
 	public DaRPCEndpoint(DaRPCEndpointGroup<? extends DaRPCEndpoint<R,T>, R, T> endpointGroup, RdmaCmId idPriv, boolean serverSide) throws IOException {
 		super(endpointGroup, idPriv, serverSide);
 		this.rpcGroup = endpointGroup;
@@ -85,7 +85,7 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		logger.info("RPC client endpoint, with payload buffer size = " + payloadSize + ", send pipeline "
 					+ sendPipelineLength + ", receive pipeline " + recvPipelineLength);
 	}
-	
+
 	public void init() throws IOException {
 		int sendBufferOffset = recvPipelineLength * rawBufferSize;
 
@@ -132,16 +132,16 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 	public synchronized void close() throws IOException, InterruptedException {
 		rpcGroup.freeBuffer(this, dataBuffer);
 		super.close();
-	}	
-	
+	}
+
 	public long getMessagesSent() {
 		return messagesSent.get();
 	}
-	
+
 	public long getMessagesReceived() {
 		return messagesReceived.get();
 	}
-	
+
 	protected boolean sendMessage(DaRPCMessage message, int ticket) throws IOException {
 		SVCPostSend postSend = freePostSend.poll();
 		if (postSend != null){
@@ -153,7 +153,7 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 			postSend.getWrMod(0).setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
 			if (written <= maxinline) {
 				postSend.getWrMod(0).setSend_flags(postSend.getWrMod(0).getSend_flags() | IbvSendWR.IBV_SEND_INLINE);
-			} 
+			}
 			pendingPostSend.put(ticket, postSend);
 			postSend.execute();
 			messagesSent.incrementAndGet();
@@ -162,27 +162,27 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 			return false;
 		}
 	}
-	
+
 	protected void postRecv(int index) throws IOException {
 		recvCall[index].execute();
-	}	
-	
+	}
+
 	public void freeSend(int ticket) throws IOException {
 		SVCPostSend sendOperation = pendingPostSend.remove(ticket);
 		if (sendOperation == null) {
 			throw new IOException("no pending ticket " + ticket + ", current ticket count " + ticketCount.get());
 		}
 		this.freePostSend.add(sendOperation);
-	}	
-	
+	}
+
 	public void dispatchCqEvent(IbvWC wc) throws IOException {
 		if (wc.getStatus() == 5){
 			//flush
 			return;
 		} else if (wc.getStatus() != 0){
 			throw new IOException("Faulty operation! wc.status " + wc.getStatus());
-		} 	
-		
+		}
+
 		if (wc.getOpcode() == 128){
 			//receiving a message
 			int index = (int) wc.getWr_id();
@@ -198,9 +198,9 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 			dispatchSend(ticket);
 		} else {
 			throw new IOException("Unkown opcode " + wc.getOpcode());
-		}		
-	}	
-	
+		}
+	}
+
 	private SVCPostSend setupSendTask(int wrid) throws IOException {
 		ArrayList<IbvSendWR> sendWRs = new ArrayList<IbvSendWR>(1);
 		LinkedList<IbvSge> sgeList = new LinkedList<IbvSge>();

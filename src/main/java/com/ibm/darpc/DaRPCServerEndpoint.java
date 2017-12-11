@@ -12,13 +12,13 @@ import com.ibm.disni.rdma.verbs.RdmaCmId;
 
 public class DaRPCServerEndpoint<R extends DaRPCMessage, T extends DaRPCMessage> extends DaRPCEndpoint<R,T> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
-	
+
 	private DaRPCServerGroup<R, T> group;
-	private int eventPoolSize;
+	final private int eventPoolSize;
 	private ArrayBlockingQueue<DaRPCServerEvent<R,T>> eventPool;
 	private ArrayBlockingQueue<DaRPCServerEvent<R,T>> lazyEvents;
 	private int getClusterId;
-	
+
 	public DaRPCServerEndpoint(DaRPCServerGroup<R, T> group, RdmaCmId idPriv, boolean serverSide) throws IOException {
 		super(group, idPriv, serverSide);
 		this.group = group;
@@ -29,23 +29,25 @@ public class DaRPCServerEndpoint<R extends DaRPCMessage, T extends DaRPCMessage>
 
 	}
 
+
 	public void init() throws IOException {
 		super.init();
 		for(int i = 0; i < this.eventPoolSize; i++){
 			DaRPCServerEvent<R,T> event = new DaRPCServerEvent<R,T>(this, group.createRequest(), group.createResponse());
 			this.eventPool.add(event);
-			
+
 		}
 	}
-	
+
 	void sendResponse(DaRPCServerEvent<R,T> event) throws IOException {
 		if (sendMessage(event.getSendMessage(), event.getTicket())){
 			eventPool.add(event);
 		} else {
 			lazyEvents.add(event);
 		}
-	}	
-	
+	}
+
+
 	public synchronized void dispatchCmEvent(RdmaCmEvent cmEvent) throws IOException {
 		super.dispatchCmEvent(cmEvent);
 		try {
@@ -56,16 +58,17 @@ public class DaRPCServerEndpoint<R extends DaRPCMessage, T extends DaRPCMessage>
 			} else if (eventType == RdmaCmEvent.EventType.RDMA_CM_EVENT_DISCONNECTED.ordinal()) {
 				logger.info("RPC disconnection, eid " + this.getEndpointId());
 				group.close(this);
-			} 
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-	}	
+	}
 
 	public int clusterId() {
 		return getClusterId;
 	}
-	
+
+
 	public void dispatchReceive(ByteBuffer recvBuffer, int ticket, int recvIndex) throws IOException {
 		DaRPCServerEvent<R,T> event = eventPool.poll();
 		if (event == null){
@@ -75,11 +78,12 @@ public class DaRPCServerEndpoint<R extends DaRPCMessage, T extends DaRPCMessage>
 		event.getReceiveMessage().update(recvBuffer);
 		event.stamp(ticket);
 		postRecv(recvIndex);
-		group.processServerEvent(event);			
+		group.processServerEvent(event);
 	}
-	
+
+
 	public void dispatchSend(int ticket) throws IOException {
-		freeSend(ticket);		
+		freeSend(ticket);
 		DaRPCServerEvent<R,T> event = lazyEvents.poll();
 		if (event != null){
 			sendResponse(event);

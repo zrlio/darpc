@@ -43,6 +43,7 @@ import com.ibm.darpc.DaRPCClientGroup;
 import com.ibm.darpc.DaRPCEndpoint;
 import com.ibm.darpc.DaRPCFuture;
 import com.ibm.darpc.DaRPCMemPool;
+import com.ibm.darpc.DaRPCMemPoolImplBuddy;
 import com.ibm.darpc.DaRPCStream;
 import com.ibm.darpc.examples.protocol.RdmaRpcProtocol;
 import com.ibm.darpc.examples.protocol.RdmaRpcRequest;
@@ -52,8 +53,8 @@ import com.ibm.disni.util.*;
 public class DaRPCClient {
 	public static enum BenchmarkType {
 		UNDEFINED
-	};	
-	
+	};
+
 	public static class ClientThread implements Runnable {
 		public static final int FUTURE_POLL = 0;
 		public static final int STREAM_POLL = 1;
@@ -61,19 +62,19 @@ public class DaRPCClient {
 		public static final int STREAM_TAKE = 3;
 		public static final int BATCH_STREAM_TAKE = 4;
 		public static final int BATCH_STREAM_POLL = 5;
-		
+
 		private DaRPCClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp;
 		private int loop;
 		private int queryMode;
 		private int clienttimeout;
 		private ArrayBlockingQueue<RdmaRpcResponse> freeResponses;
-		
+
 		protected double throughput;
 		protected double latency;
 		protected double readOps;
 		protected double writeOps;
-		protected double errorOps;		
-		
+		protected double errorOps;
+
 		public ClientThread(DaRPCClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp, int loop, URI uri, int mode, int rpcpipeline, int clienttimeout){
 			this.clientEp = clientEp;
 			this.loop = loop;
@@ -83,9 +84,9 @@ public class DaRPCClient {
 			for (int i = 0; i < rpcpipeline; i++){
 				RdmaRpcResponse response = new RdmaRpcResponse();
 				freeResponses.add(response);
-			}	
+			}
 		}
-		
+
 		@Override
 		public void run() {
 			try {
@@ -98,15 +99,15 @@ public class DaRPCClient {
 					while(freeResponses.isEmpty()){
 						DaRPCFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.poll();
 						if (future != null){
-							freeResponses.add(future.getReceiveMessage());						
+							freeResponses.add(future.getReceiveMessage());
 							consumed++;
 						}
 					}
-					
+
 					request.setParam(issued);
 					RdmaRpcResponse response = freeResponses.poll();
 					DaRPCFuture<RdmaRpcRequest, RdmaRpcResponse> future = stream.request(request, response, streamMode);
-					
+
 					switch (queryMode) {
 					case FUTURE_POLL:
 						while (!future.isDone()) {
@@ -122,12 +123,12 @@ public class DaRPCClient {
 						}
 						consumed++;
 						freeResponses.add(future.getReceiveMessage());
-						break;		
+						break;
 					case FUTURE_TAKE:
 						future.get(clienttimeout, TimeUnit.MILLISECONDS);
 						consumed++;
 						freeResponses.add(future.getReceiveMessage());
-						break;						
+						break;
 					case STREAM_TAKE:
 						future = stream.take(clienttimeout);
 						consumed++;
@@ -136,7 +137,7 @@ public class DaRPCClient {
 					case BATCH_STREAM_TAKE:
 						break;
 					case BATCH_STREAM_POLL:
-						break;						
+						break;
 					}
 				}
 				while (consumed < issued){
@@ -153,7 +154,7 @@ public class DaRPCClient {
 		public void close() throws Exception {
 			clientEp.close();
 		}
-		
+
 		public double getThroughput() {
 			return throughput;
 		}
@@ -172,15 +173,15 @@ public class DaRPCClient {
 
 		public double getErrorOps() {
 			return this.errorOps;
-		}	
-		
+		}
+
 		public double getOps(){
 			return loop;
-		}		
+		}
 	}
-	
+
 	public void launch(String[] args) throws Exception {
-		String ipAddress = ""; 
+		String ipAddress = "";
 		int size = 24;
 		int loop = 100;
 		int threadCount = 1;
@@ -274,14 +275,14 @@ public class DaRPCClient {
 		if ((threadCount % connections) != 0){
 			throw new Exception("thread count needs to be a multiple of connections");
 		}
-		
+
 		int threadsperconnection = threadCount / connections;
 		DaRPCEndpoint<?,?>[] rpcConnections = new DaRPCEndpoint[connections];
 		Thread[] workers = new Thread[threadCount];
 		ClientThread[] benchmarkTask = new ClientThread[threadCount];
-		
+
 		RdmaRpcProtocol rpcProtocol = new RdmaRpcProtocol();
-		DaRPCMemPool memPool = new DaRPCMemPool("", 0, -1, -1, -1);
+		DaRPCMemPool memPool = new DaRPCMemPoolImplBuddy();
 		System.out.println("starting.. threads " + threadCount + ", connections " + connections + ", server " + ipAddress + ", recvQueue " + recvQueue + ", sendQueue" + sendQueue + ", batchSize " + batchSize + ", mode " + mode);
 		DaRPCClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = DaRPCClientGroup.createClientGroup(rpcProtocol, memPool, 100, maxinline, recvQueue, sendQueue);
 		URI uri = URI.create("rdma://" + ipAddress + ":" + 1919);
@@ -297,7 +298,7 @@ public class DaRPCClient {
 		}
 
 		StopWatch stopWatchThroughput = new StopWatch();
-		stopWatchThroughput.start();		
+		stopWatchThroughput.start();
 		for(int i = 0; i < threadCount;i++){
 			workers[i] = new Thread(benchmarkTask[i]);
 			workers[i].start();
@@ -321,7 +322,7 @@ public class DaRPCClient {
 			double throughputperclient = throughput / _threadcount;
 			double norm = 1.0;
 			latency = norm / throughputperclient * 1000000.0;
-		}	
+		}
 		System.out.println("throughput " + throughput);
 
 		String dataFilename = "datalog-client.dat";
@@ -338,18 +339,18 @@ public class DaRPCClient {
 				+ "\n";
 		ByteBuffer buffer = ByteBuffer.wrap(logdata.getBytes());
 		dataChannel.write(buffer);
-		dataChannel.close();		
+		dataChannel.close();
 		dataStream.close();
-		
+
 		for (int i = 0; i < rpcConnections.length; i++){
 			rpcConnections[i].close();
 		}
 		group.close();
 	}
-	
-	public static void main(String[] args) throws Exception { 
+
+	public static void main(String[] args) throws Exception {
 		DaRPCClient rpcClient = new DaRPCClient();
-		rpcClient.launch(args);		
+		rpcClient.launch(args);
 		System.exit(0);
 	}
 }
