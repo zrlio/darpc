@@ -27,7 +27,6 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
-import java.util.Arrays;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -192,17 +191,17 @@ public class DaRPCClient {
 		int recvQueue = batchSize;
 		int sendQueue = batchSize;
 
-		Option addressOption = Option.builder("a").required().hasArg().build();
-		Option loopOption = Option.builder("k").hasArg().build();
-		Option threadCountOption = Option.builder("n").hasArg().build();
-		Option modeOption = Option.builder("m").hasArg().build();
-		Option batchSizeOption = Option.builder("b").hasArg().build();
-		Option connectionsOption = Option.builder("c").hasArg().build();
-		Option clienttimeoutOption = Option.builder("t").hasArg().build();
-		Option maxinlineOption = Option.builder("i").hasArg().build();
-		Option sendQueueOption = Option.builder("s").hasArg().build();
-		Option recvQueueOption = Option.builder("r").hasArg().build();
-		Option serializedSizeOption = Option.builder("l").hasArg().build();
+		Option addressOption = Option.builder("a").required().desc("server address").hasArg().build();
+		Option loopOption = Option.builder("k").desc("loop count").hasArg().build();
+		Option threadCountOption = Option.builder("n").desc("thread count").hasArg().build();
+		Option modeOption = Option.builder("m").desc("mode").hasArg().build();
+		Option batchSizeOption = Option.builder("b").desc("batch size").hasArg().build();
+		Option connectionsOption = Option.builder("c").desc("number of connections").hasArg().build();
+		Option clienttimeoutOption = Option.builder("t").desc("client timeout").hasArg().build();
+		Option maxinlineOption = Option.builder("i").desc("max inline data").hasArg().build();
+		Option sendQueueOption = Option.builder("s").desc("send queue").hasArg().build();
+		Option recvQueueOption = Option.builder("r").desc("receive queue").hasArg().build();
+		Option serializedSizeOption = Option.builder("l").desc("serialized size").hasArg().build();
 		Options options = new Options();
 		options.addOption(addressOption);
 		options.addOption(loopOption);
@@ -218,7 +217,7 @@ public class DaRPCClient {
 		CommandLineParser parser = new DefaultParser();
 		
 		try {
-			CommandLine line = parser.parse(options, Arrays.copyOfRange(args, 0, args.length));
+			CommandLine line = parser.parse(options, args);
 			ipAddress = line.getOptionValue(addressOption.getOpt());
 
 			if (line.hasOption(loopOption.getOpt())) {

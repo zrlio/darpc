@@ -24,7 +24,6 @@ package com.ibm.darpc.examples.server;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.util.Arrays;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
@@ -69,16 +68,16 @@ public class DaRPCServer {
 	}
 	
 	public void launch(String[] args) throws Exception {
-		Option addressOption = Option.builder("a").required().hasArg().build();
-		Option poolsizeOption = Option.builder("p").hasArg().build();
-		Option servicetimeoutOption = Option.builder("t").hasArg().build();
-		Option pollingOption = Option.builder("d").build();
-		Option maxinlineOption = Option.builder("i").hasArg().build();
-		Option connectionsOption = Option.builder("c").hasArg().build();
-		Option wqSizeOption = Option.builder("w").hasArg().build();
-		Option recvQueueOption = Option.builder("r").hasArg().build();
-		Option sendQueueOption = Option.builder("s").hasArg().build();
-		Option serializedSizeOption = Option.builder("l").hasArg().build();
+		Option addressOption = Option.builder("a").required().desc("server address").hasArg().build();
+		Option poolsizeOption = Option.builder("p").desc("pool size").hasArg().build();
+		Option servicetimeoutOption = Option.builder("t").desc("service timeout").hasArg().build();
+		Option pollingOption = Option.builder("d").desc("if polling, default false").build();
+		Option maxinlineOption = Option.builder("i").desc("max inline data").hasArg().build();
+		Option connectionsOption = Option.builder("c").desc("number of connections").hasArg().build();
+		Option wqSizeOption = Option.builder("w").desc("wq size").hasArg().build();
+		Option recvQueueOption = Option.builder("r").desc("receive queue").hasArg().build();
+		Option sendQueueOption = Option.builder("s").desc("send queue").hasArg().build();
+		Option serializedSizeOption = Option.builder("l").desc("serialized size").hasArg().build();
 		Options options = new Options();
 		options.addOption(addressOption);
 		options.addOption(poolsizeOption);
@@ -93,7 +92,7 @@ public class DaRPCServer {
 		CommandLineParser parser = new DefaultParser();
 
 		try {
-			CommandLine line = parser.parse(options, Arrays.copyOfRange(args, 0, args.length));
+			CommandLine line = parser.parse(options, args);
 			ipAddress = line.getOptionValue(addressOption.getOpt());
 
 			if (line.hasOption(poolsizeOption.getOpt())) {
