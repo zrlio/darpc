@@ -24,13 +24,21 @@ package com.ibm.darpc.examples.server;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.util.Arrays;
+
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 
 import com.ibm.darpc.DaRPCServerEndpoint;
 import com.ibm.darpc.DaRPCServerGroup;
 import com.ibm.darpc.examples.protocol.RdmaRpcRequest;
 import com.ibm.darpc.examples.protocol.RdmaRpcResponse;
 import com.ibm.disni.rdma.*;
-import com.ibm.disni.util.*;
 
 public class DaRPCServer {
 	private String ipAddress; 
@@ -61,47 +69,66 @@ public class DaRPCServer {
 	}
 	
 	public void launch(String[] args) throws Exception {
-		String[] _args = args;
-		if (args.length < 1) {
-			System.exit(0);
-		} else if (args[0].equals(DaRPCServer.class.getCanonicalName())) {
-			_args = new String[args.length - 1];
-			for (int i = 0; i < _args.length; i++) {
-				_args[i] = args[i + 1];
+		Option addressOption = Option.builder("a").required().hasArg().build();
+		Option poolsizeOption = Option.builder("p").hasArg().build();
+		Option servicetimeoutOption = Option.builder("t").hasArg().build();
+		Option pollingOption = Option.builder("d").build();
+		Option maxinlineOption = Option.builder("i").hasArg().build();
+		Option connectionsOption = Option.builder("c").hasArg().build();
+		Option wqSizeOption = Option.builder("w").hasArg().build();
+		Option recvQueueOption = Option.builder("r").hasArg().build();
+		Option sendQueueOption = Option.builder("s").hasArg().build();
+		Option serializedSizeOption = Option.builder("l").hasArg().build();
+		Options options = new Options();
+		options.addOption(addressOption);
+		options.addOption(poolsizeOption);
+		options.addOption(servicetimeoutOption);
+		options.addOption(pollingOption);
+		options.addOption(maxinlineOption);
+		options.addOption(connectionsOption);
+		options.addOption(wqSizeOption);
+		options.addOption(recvQueueOption);
+		options.addOption(sendQueueOption);
+		options.addOption(serializedSizeOption);
+		CommandLineParser parser = new DefaultParser();
+
+		try {
+			CommandLine line = parser.parse(options, Arrays.copyOfRange(args, 0, args.length));
+			ipAddress = line.getOptionValue(addressOption.getOpt());
+
+			if (line.hasOption(poolsizeOption.getOpt())) {
+				poolsize = Integer.parseInt(line.getOptionValue(poolsizeOption.getOpt()));
 			}
-		}
-
-		GetOpt go = new GetOpt(_args, "a:p:s:da:c:r:s:w:l:");
-		go.optErr = true;
-		int ch = -1;
-
-		while ((ch = go.getopt()) != GetOpt.optEOF) {
-			if ((char) ch == 'a') {
-				ipAddress = go.optArgGet();
-			} else if ((char) ch == 'p') {
-				poolsize = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 't') {
-				servicetimeout = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'd') {
+			if (line.hasOption(servicetimeoutOption.getOpt())) {
+				servicetimeout = Integer.parseInt(line.getOptionValue(servicetimeoutOption.getOpt()));
+			}
+			if (line.hasOption(pollingOption.getOpt())) {
 				polling = true;
-			} else if ((char) ch == 'i') {
-				maxinline = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'c') {
-				connections = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'w') {
-				wqSize = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'r') {
-				recvQueue = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 's') {
-				sendQueue = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'l') {
-				RdmaRpcRequest.SERIALIZED_SIZE = Integer.parseInt(go.optArgGet());
-				RdmaRpcResponse.SERIALIZED_SIZE = RdmaRpcRequest.SERIALIZED_SIZE;
-			} else {
-				System.exit(1); // undefined option
 			}
-		}	
-		
+			if (line.hasOption(maxinlineOption.getOpt())) {
+				maxinline = Integer.parseInt(line.getOptionValue(maxinlineOption.getOpt()));
+			}
+			if (line.hasOption(connectionsOption.getOpt())) {
+				connections = Integer.parseInt(line.getOptionValue(connectionsOption.getOpt()));
+			}
+			if (line.hasOption(wqSizeOption.getOpt())) {
+				wqSize = Integer.parseInt(line.getOptionValue(wqSizeOption.getOpt()));
+			}
+			if (line.hasOption(recvQueueOption.getOpt())) {
+				recvQueue = Integer.parseInt(line.getOptionValue(recvQueueOption.getOpt()));
+			}
+			if (line.hasOption(sendQueueOption.getOpt())) {
+				sendQueue = Integer.parseInt(line.getOptionValue(sendQueueOption.getOpt()));
+			}
+			if (line.hasOption(serializedSizeOption.getOpt())) {
+				RdmaRpcRequest.SERIALIZED_SIZE = Integer.parseInt(line.getOptionValue(serializedSizeOption.getOpt()));
+				RdmaRpcResponse.SERIALIZED_SIZE = RdmaRpcRequest.SERIALIZED_SIZE;
+			}
+		} catch (ParseException e) {
+			HelpFormatter formatter = new HelpFormatter();
+			formatter.printHelp("DaRPCServer", options);
+			System.exit(-1);
+		}
 		this.run();
 	}
 	

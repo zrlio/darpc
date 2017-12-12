@@ -27,8 +27,17 @@ import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.Arrays;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.TimeUnit;
+
+import org.apache.commons.cli.CommandLine;
+import org.apache.commons.cli.CommandLineParser;
+import org.apache.commons.cli.DefaultParser;
+import org.apache.commons.cli.HelpFormatter;
+import org.apache.commons.cli.Option;
+import org.apache.commons.cli.Options;
+import org.apache.commons.cli.ParseException;
 
 import com.ibm.darpc.DaRPCClientEndpoint;
 import com.ibm.darpc.DaRPCClientGroup;
@@ -183,29 +192,43 @@ public class DaRPCClient {
 		int recvQueue = batchSize;
 		int sendQueue = batchSize;
 
-		String[] _args = args;
-		if (args.length < 1) {
-			System.exit(0);
-		} else if (args[0].equals(DaRPCClient.class.getCanonicalName())) {
-			_args = new String[args.length - 1];
-			for (int i = 0; i < _args.length; i++) {
-				_args[i] = args[i + 1];
-			}
-		}
-
-		GetOpt go = new GetOpt(_args, "a:k:n:m:b:c:a:r:s:l:");
-		go.optErr = true;
-		int ch = -1;
+		Option addressOption = Option.builder("a").required().hasArg().build();
+		Option loopOption = Option.builder("k").hasArg().build();
+		Option threadCountOption = Option.builder("n").hasArg().build();
+		Option modeOption = Option.builder("m").hasArg().build();
+		Option batchSizeOption = Option.builder("b").hasArg().build();
+		Option connectionsOption = Option.builder("c").hasArg().build();
+		Option clienttimeoutOption = Option.builder("t").hasArg().build();
+		Option maxinlineOption = Option.builder("i").hasArg().build();
+		Option sendQueueOption = Option.builder("s").hasArg().build();
+		Option recvQueueOption = Option.builder("r").hasArg().build();
+		Option serializedSizeOption = Option.builder("l").hasArg().build();
+		Options options = new Options();
+		options.addOption(addressOption);
+		options.addOption(loopOption);
+		options.addOption(threadCountOption);
+		options.addOption(modeOption);
+		options.addOption(batchSizeOption);
+		options.addOption(connectionsOption);
+		options.addOption(clienttimeoutOption);
+		options.addOption(maxinlineOption);
+		options.addOption(sendQueueOption);
+		options.addOption(recvQueueOption);
+		options.addOption(serializedSizeOption);
+		CommandLineParser parser = new DefaultParser();
 		
-		while ((ch = go.getopt()) != GetOpt.optEOF) {
-			if ((char) ch == 'a') {
-				ipAddress = go.optArgGet();
-			} else if ((char) ch == 'k') {
-				loop = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'n') {
-				threadCount = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'm') {
-				String _mode = go.optArgGet();
+		try {
+			CommandLine line = parser.parse(options, Arrays.copyOfRange(args, 0, args.length));
+			ipAddress = line.getOptionValue(addressOption.getOpt());
+
+			if (line.hasOption(loopOption.getOpt())) {
+				loop = Integer.parseInt(line.getOptionValue(loopOption.getOpt()));
+			}
+			if (line.hasOption(threadCountOption.getOpt())) {
+				threadCount = Integer.parseInt(line.getOptionValue(threadCountOption.getOpt()));
+			}
+			if (line.hasOption(modeOption.getOpt())) {
+				String _mode = line.getOptionValue(modeOption.getOpt());
 				if (_mode.equalsIgnoreCase("future-poll")) {
 					mode = ClientThread.FUTURE_POLL;
 				} else if (_mode.equalsIgnoreCase("stream-poll")) {
@@ -219,25 +242,35 @@ public class DaRPCClient {
 				} else if (_mode.equalsIgnoreCase("batch-stream-poll")) {
 					mode = ClientThread.BATCH_STREAM_POLL;
 				}
-			} else if ((char) ch == 'b') {
-				batchSize = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'c') {
-				connections = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 't') {
-				clienttimeout = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'a') {
-				maxinline = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'r') {
-				recvQueue = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 's') {
-				sendQueue = Integer.parseInt(go.optArgGet());
-			} else if ((char) ch == 'l') {
-				RdmaRpcRequest.SERIALIZED_SIZE = Integer.parseInt(go.optArgGet());
-				RdmaRpcResponse.SERIALIZED_SIZE = RdmaRpcRequest.SERIALIZED_SIZE;
-			} else {
-				System.exit(1); // undefined option
 			}
-		}	
+			if (line.hasOption(batchSizeOption.getOpt())) {
+				batchSize = Integer.parseInt(line.getOptionValue(batchSizeOption.getOpt()));
+			}
+			if (line.hasOption(connectionsOption.getOpt())) {
+				connections = Integer.parseInt(line.getOptionValue(connectionsOption.getOpt()));
+			}
+			if (line.hasOption(clienttimeoutOption.getOpt())) {
+				clienttimeout = Integer.parseInt(line.getOptionValue(clienttimeoutOption.getOpt()));
+			}
+			if (line.hasOption(maxinlineOption.getOpt())) {
+				maxinline = Integer.parseInt(line.getOptionValue(maxinlineOption.getOpt()));
+			}
+			if (line.hasOption(recvQueueOption.getOpt())) {
+				recvQueue = Integer.parseInt(line.getOptionValue(recvQueueOption.getOpt()));
+			}
+			if (line.hasOption(sendQueueOption.getOpt())) {
+				sendQueue = Integer.parseInt(line.getOptionValue(sendQueueOption.getOpt()));
+			}
+			if (line.hasOption(serializedSizeOption.getOpt())) {
+				RdmaRpcRequest.SERIALIZED_SIZE = Integer.parseInt(line.getOptionValue(serializedSizeOption.getOpt()));
+				RdmaRpcResponse.SERIALIZED_SIZE = RdmaRpcRequest.SERIALIZED_SIZE;
+			}
+		} catch (ParseException e) {
+			HelpFormatter formatter = new HelpFormatter();
+			formatter.printHelp("DaRPCClient", options);
+			System.exit(-1); // undefined option
+		}
+
 		if ((threadCount % connections) != 0){
 			throw new Exception("thread count needs to be a multiple of connections");
 		}
