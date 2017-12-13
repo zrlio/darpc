@@ -34,7 +34,7 @@ import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
 import com.ibm.darpc.DaRPCMemPool;
-import com.ibm.darpc.DaRPCMemPoolImplBuddy;
+import com.ibm.darpc.DaRPCMemPoolImpl;
 import com.ibm.darpc.DaRPCServerEndpoint;
 import com.ibm.darpc.DaRPCServerGroup;
 import com.ibm.darpc.examples.protocol.RdmaRpcRequest;
@@ -51,6 +51,7 @@ public class DaRPCServer {
 	private boolean polling = false;
 	private int maxinline = 0;
 	private int connections = 16;
+	String hugePagePath = null;
 
 	public void run() throws Exception{
 		long[] clusterAffinities = new long[poolsize];
@@ -60,7 +61,7 @@ public class DaRPCServer {
 		}
 		System.out.println("running...server " + ipAddress + ", poolsize " + poolsize + ", maxinline " + maxinline + ", polling " + polling + ", recvQueue " + recvQueue + ", sendQueue " + sendQueue + ", wqSize " + wqSize + ", rpcservice-timeout " + servicetimeout);
 		RdmaRpcService rpcService = new RdmaRpcService(servicetimeout);
-		DaRPCMemPool memPool = new DaRPCMemPoolImplBuddy();
+		DaRPCMemPool memPool = new DaRPCMemPoolImpl(hugePagePath);
 		DaRPCServerGroup<RdmaRpcRequest, RdmaRpcResponse> group = DaRPCServerGroup.createServerGroup(rpcService, memPool, clusterAffinities, -1, maxinline, polling, recvQueue, sendQueue, wqSize, 32);
 		RdmaServerEndpoint<DaRPCServerEndpoint<RdmaRpcRequest, RdmaRpcResponse>> serverEp = group.createServerEndpoint();
 		URI uri = URI.create("rdma://" + ipAddress + ":" + 1919);
@@ -81,6 +82,7 @@ public class DaRPCServer {
 		Option recvQueueOption = Option.builder("r").desc("receive queue").hasArg().build();
 		Option sendQueueOption = Option.builder("s").desc("send queue").hasArg().build();
 		Option serializedSizeOption = Option.builder("l").desc("serialized size").hasArg().build();
+		Option hugepagePathOption = Option.builder("h").required().desc("memory pool hugepage path").hasArg().build();
 		Options options = new Options();
 		options.addOption(addressOption);
 		options.addOption(poolsizeOption);
@@ -92,11 +94,14 @@ public class DaRPCServer {
 		options.addOption(recvQueueOption);
 		options.addOption(sendQueueOption);
 		options.addOption(serializedSizeOption);
+		options.addOption(hugepagePathOption);
 		CommandLineParser parser = new DefaultParser();
 
 		try {
 			CommandLine line = parser.parse(options, args);
 			ipAddress = line.getOptionValue(addressOption.getOpt());
+
+			hugePagePath = line.getOptionValue(hugepagePathOption.getOpt());
 
 			if (line.hasOption(poolsizeOption.getOpt())) {
 				poolsize = Integer.parseInt(line.getOptionValue(poolsizeOption.getOpt()));

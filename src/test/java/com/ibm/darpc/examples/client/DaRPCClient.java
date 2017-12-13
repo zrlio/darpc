@@ -43,7 +43,7 @@ import com.ibm.darpc.DaRPCClientGroup;
 import com.ibm.darpc.DaRPCEndpoint;
 import com.ibm.darpc.DaRPCFuture;
 import com.ibm.darpc.DaRPCMemPool;
-import com.ibm.darpc.DaRPCMemPoolImplBuddy;
+import com.ibm.darpc.DaRPCMemPoolImpl;
 import com.ibm.darpc.DaRPCStream;
 import com.ibm.darpc.examples.protocol.RdmaRpcProtocol;
 import com.ibm.darpc.examples.protocol.RdmaRpcRequest;
@@ -192,6 +192,7 @@ public class DaRPCClient {
 		int maxinline = 0;
 		int recvQueue = batchSize;
 		int sendQueue = batchSize;
+		String hugePagePath = null;
 
 		Option addressOption = Option.builder("a").required().desc("server address").hasArg().build();
 		Option loopOption = Option.builder("k").desc("loop count").hasArg().build();
@@ -204,6 +205,7 @@ public class DaRPCClient {
 		Option sendQueueOption = Option.builder("s").desc("send queue").hasArg().build();
 		Option recvQueueOption = Option.builder("r").desc("receive queue").hasArg().build();
 		Option serializedSizeOption = Option.builder("l").desc("serialized size").hasArg().build();
+		Option hugepagePathOption = Option.builder("h").required().desc("memory pool hugepage path").hasArg().build();
 		Options options = new Options();
 		options.addOption(addressOption);
 		options.addOption(loopOption);
@@ -216,11 +218,14 @@ public class DaRPCClient {
 		options.addOption(sendQueueOption);
 		options.addOption(recvQueueOption);
 		options.addOption(serializedSizeOption);
+		options.addOption(hugepagePathOption);
 		CommandLineParser parser = new DefaultParser();
-		
+
 		try {
 			CommandLine line = parser.parse(options, args);
 			ipAddress = line.getOptionValue(addressOption.getOpt());
+
+			hugePagePath = line.getOptionValue(hugepagePathOption.getOpt());
 
 			if (line.hasOption(loopOption.getOpt())) {
 				loop = Integer.parseInt(line.getOptionValue(loopOption.getOpt()));
@@ -282,7 +287,7 @@ public class DaRPCClient {
 		ClientThread[] benchmarkTask = new ClientThread[threadCount];
 
 		RdmaRpcProtocol rpcProtocol = new RdmaRpcProtocol();
-		DaRPCMemPool memPool = new DaRPCMemPoolImplBuddy();
+		DaRPCMemPool memPool = new DaRPCMemPoolImpl(hugePagePath);
 		System.out.println("starting.. threads " + threadCount + ", connections " + connections + ", server " + ipAddress + ", recvQueue " + recvQueue + ", sendQueue" + sendQueue + ", batchSize " + batchSize + ", mode " + mode);
 		DaRPCClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = DaRPCClientGroup.createClientGroup(rpcProtocol, memPool, 100, maxinline, recvQueue, sendQueue);
 		URI uri = URI.create("rdma://" + ipAddress + ":" + 1919);
