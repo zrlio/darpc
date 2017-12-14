@@ -9,6 +9,7 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.LinkedList;
+import java.util.NoSuchElementException;
 
 import com.ibm.disni.rdma.RdmaEndpoint;
 import com.ibm.disni.rdma.verbs.IbvMr;
@@ -19,7 +20,6 @@ public class DaRPCMemPoolImpl implements DaRPCMemPool {
 	private static final int defaultAllocationSize = 16 * 1024 * 1024; // 16MB
 	private final int allocationSize;
 	private final int alignmentSize;
-	private final String hugePagePath;
 	private String hugePageFile;
 	int offset;
 	ByteBuffer byteBuffer;
@@ -28,35 +28,30 @@ public class DaRPCMemPoolImpl implements DaRPCMemPool {
 	int access;
 	LinkedList<ByteBuffer> freeList;
 
-	public DaRPCMemPoolImpl(String hugePagePath, int allocationSize, int alignmentSize) {
+	public DaRPCMemPoolImpl(String hugePagePath, int allocationSize, int alignmentSize) throws IllegalArgumentException {
+		if (hugePagePath == null) {
+			System.out.println("Hugepage path must be set");
+			throw new IllegalArgumentException("Hugepage path must be set");
+		}
+
 		this.allocationSize = allocationSize;
 		this.alignmentSize = alignmentSize;
-		this.hugePagePath = hugePagePath;
+		hugePageFile = hugePagePath + "/darpcmempoolimpl.mem";
 
 		this.access = IbvMr.IBV_ACCESS_LOCAL_WRITE | IbvMr.IBV_ACCESS_REMOTE_WRITE | IbvMr.IBV_ACCESS_REMOTE_READ;
 	}
 
-	public DaRPCMemPoolImpl(String hugePagePath) {
-		this.allocationSize = defaultAllocationSize;
-		this.alignmentSize = 0;
-		this.hugePagePath = hugePagePath;
-
-		this.access = IbvMr.IBV_ACCESS_LOCAL_WRITE | IbvMr.IBV_ACCESS_REMOTE_WRITE | IbvMr.IBV_ACCESS_REMOTE_READ;
+	public DaRPCMemPoolImpl(String hugePagePath) throws IllegalArgumentException {
+		this(hugePagePath, defaultAllocationSize, 0);
 	}
 
 	// allocate a buffer from hugepages
 	ByteBuffer allocateHugePageBuffer() throws IOException {
-		if (hugePagePath == null) {
-			System.out.println("Hugepage path must be set");
-			throw new IOException("Hugepage path must be set");
-		}
-
-		hugePageFile = hugePagePath + "/darpcmempoolimpl.mem";
 		RandomAccessFile randomFile = null;
 		try {
 			randomFile = new RandomAccessFile(hugePageFile, "rw");
 		} catch (FileNotFoundException e) {
-			System.out.println("Path " + hugePageFile + " to huge page directory not found.");
+			System.out.println("Path " + hugePageFile + " to huge page path/file cannot be accessed.");
 			throw e;
 		}
 		try {
@@ -107,7 +102,7 @@ public class DaRPCMemPoolImpl implements DaRPCMemPool {
 	}
 
 	@Override
-	public ByteBuffer getBuffer(RdmaEndpoint endpoint, int size) throws IOException {
+	public ByteBuffer getBuffer(RdmaEndpoint endpoint, int size) throws IOException, NoSuchElementException {
 		ByteBuffer r = null;
 
 		synchronized(this) {
