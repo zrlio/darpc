@@ -6,9 +6,10 @@ import java.util.NoSuchElementException;
 
 import com.ibm.disni.rdma.RdmaEndpoint;
 
-public interface DaRPCMemPool {
+public interface DaRPCMemPool<E extends DaRPCEndpoint<R,T>, R extends DaRPCMessage, T extends DaRPCMessage> {
+	void init(DaRPCEndpointGroup<E,R,T> endpointGroup);
 	void close() throws IOException;
-	ByteBuffer getBuffer(RdmaEndpoint endpoint, int size) throws IOException, NoSuchElementException;
-	void freeBuffer(RdmaEndpoint endpoint, ByteBuffer b) throws IOException;
-	public int getLKey(RdmaEndpoint endpoint, ByteBuffer b) throws IllegalArgumentException;
+	ByteBuffer getBuffer(RdmaEndpoint endpoint) throws IOException, NoSuchElementException;
+	void freeBuffer(RdmaEndpoint endpoint, ByteBuffer buffer) throws IOException;
+	public int getLKey(ByteBuffer b) throws IllegalArgumentException;
 }

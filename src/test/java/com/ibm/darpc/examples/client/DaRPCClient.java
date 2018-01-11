@@ -22,8 +22,6 @@
 package com.ibm.darpc.examples.client;
 
 import java.io.FileOutputStream;
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
@@ -287,7 +285,7 @@ public class DaRPCClient {
 		ClientThread[] benchmarkTask = new ClientThread[threadCount];
 
 		RdmaRpcProtocol rpcProtocol = new RdmaRpcProtocol();
-		DaRPCMemPool memPool = new DaRPCMemPoolImpl(hugePagePath);
+		DaRPCMemPool<DaRPCClientEndpoint<RdmaRpcRequest, RdmaRpcResponse>, RdmaRpcRequest, RdmaRpcResponse> memPool = new DaRPCMemPoolImpl<DaRPCClientEndpoint<RdmaRpcRequest, RdmaRpcResponse>, RdmaRpcRequest, RdmaRpcResponse>(hugePagePath);
 		System.out.println("starting.. threads " + threadCount + ", connections " + connections + ", server " + ipAddress + ", recvQueue " + recvQueue + ", sendQueue" + sendQueue + ", batchSize " + batchSize + ", mode " + mode);
 		DaRPCClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = DaRPCClientGroup.createClientGroup(rpcProtocol, memPool, 100, maxinline, recvQueue, sendQueue);
 		URI uri = URI.create("rdma://" + ipAddress + ":" + 1919);

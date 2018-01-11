@@ -21,8 +21,6 @@
 
 package com.ibm.darpc.examples.server;
 
-import java.net.InetAddress;
-import java.net.InetSocketAddress;
 import java.net.URI;
 
 import org.apache.commons.cli.CommandLine;
@@ -61,7 +59,7 @@ public class DaRPCServer {
 		}
 		System.out.println("running...server " + ipAddress + ", poolsize " + poolsize + ", maxinline " + maxinline + ", polling " + polling + ", recvQueue " + recvQueue + ", sendQueue " + sendQueue + ", wqSize " + wqSize + ", rpcservice-timeout " + servicetimeout);
 		RdmaRpcService rpcService = new RdmaRpcService(servicetimeout);
-		DaRPCMemPool memPool = new DaRPCMemPoolImpl(hugePagePath);
+		DaRPCMemPool<DaRPCServerEndpoint<RdmaRpcRequest, RdmaRpcResponse>, RdmaRpcRequest, RdmaRpcResponse> memPool = new DaRPCMemPoolImpl<DaRPCServerEndpoint<RdmaRpcRequest, RdmaRpcResponse>, RdmaRpcRequest, RdmaRpcResponse>(hugePagePath);
 		DaRPCServerGroup<RdmaRpcRequest, RdmaRpcResponse> group = DaRPCServerGroup.createServerGroup(rpcService, memPool, clusterAffinities, -1, maxinline, polling, recvQueue, sendQueue, wqSize, 32);
 		RdmaServerEndpoint<DaRPCServerEndpoint<RdmaRpcRequest, RdmaRpcResponse>> serverEp = group.createServerEndpoint();
 		URI uri = URI.create("rdma://" + ipAddress + ":" + 1919);

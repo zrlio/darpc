@@ -38,13 +38,13 @@ public abstract class DaRPCEndpointGroup<E extends DaRPCEndpoint<R,T>, R extends
 	private int timeout;
 	private int bufferSize;
 	private int maxInline;
-	private DaRPCMemPool memPool;
+	private DaRPCMemPool<E,R,T> memPool;
 
 	public static int getVersion(){
 		return DARPC_VERSION;
 	}
 
-	protected DaRPCEndpointGroup(DaRPCProtocol<R,T> protocol, DaRPCMemPool memPool, int timeout, int maxinline, int recvQueue, int sendQueue) throws Exception {
+	protected DaRPCEndpointGroup(DaRPCProtocol<R,T> protocol, DaRPCMemPool<E,R,T> memPool, int timeout, int maxinline, int recvQueue, int sendQueue) throws Exception {
 		super(timeout);
 		this.recvQueueSize = recvQueue;
 		this.sendQueueSize = sendQueue;
@@ -52,6 +52,12 @@ public abstract class DaRPCEndpointGroup<E extends DaRPCEndpoint<R,T>, R extends
 		this.bufferSize = Math.max(protocol.createRequest().size(), protocol.createResponse().size());
 		this.maxInline = maxinline;
 		this.memPool = memPool;
+	}
+
+	@Override
+	public void init(RdmaEndpointFactory<E> factory) {
+		super.init(factory);
+		memPool.init(this);
 	}
 
 	protected synchronized IbvQP createQP(RdmaCmId id, IbvPd pd, IbvCQ cq) throws IOException{
@@ -95,15 +101,15 @@ public abstract class DaRPCEndpointGroup<E extends DaRPCEndpoint<R,T>, R extends
 		return maxInline;
 	}
 
-	ByteBuffer getWRBuffer(RdmaEndpoint endpoint, int size) throws Exception {
-		return memPool.getBuffer(endpoint, size);
+	ByteBuffer getWRBuffer(RdmaEndpoint endpoint) throws Exception {
+		return memPool.getBuffer(endpoint);
 	}
 
 	void freeBuffer(RdmaEndpoint endpoint, ByteBuffer b) throws IOException {
 		memPool.freeBuffer(endpoint, b);
 	}
 
-	int getLKey(RdmaEndpoint endpoint, ByteBuffer b) {
-		return memPool.getLKey(endpoint, b);
+	int getLKey(ByteBuffer b) {
+		return memPool.getLKey(b);
 	}
 }

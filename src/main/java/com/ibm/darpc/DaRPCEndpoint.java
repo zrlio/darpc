@@ -27,7 +27,6 @@ import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
 import org.slf4j.Logger;
@@ -39,7 +38,7 @@ import com.ibm.disni.rdma.*;
 
 public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessage> extends RdmaEndpoint {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
-	private static final int headerSize = 4;
+	static final int HEADERSIZE = 4; //size of the ticket
 
 	public abstract void dispatchReceive(ByteBuffer buffer, int ticket, int recvIndex) throws IOException;
 	public abstract void dispatchSend(int ticket) throws IOException;
@@ -70,7 +69,7 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		this.rpcGroup = endpointGroup;
 		this.maxinline = rpcGroup.getMaxInline();
 		this.payloadSize = rpcGroup.getBufferSize();
-		this.rawBufferSize = headerSize + this.payloadSize;
+		this.rawBufferSize = HEADERSIZE + this.payloadSize;
 		this.sendPipelineLength = rpcGroup.sendQueueSize();
 		this.recvPipelineLength = rpcGroup.recvQueueSize();
 		this.freePostSend = new ArrayBlockingQueue<SVCPostSend>(sendPipelineLength);
@@ -93,8 +92,8 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		 * one for sends and one for receives.
 		 */
 		try {
-			dataBuffer = rpcGroup.getWRBuffer(this, sendPipelineLength * rawBufferSize + recvPipelineLength * rawBufferSize);
-			lkey = rpcGroup.getLKey(this, dataBuffer);
+			dataBuffer = rpcGroup.getWRBuffer(this);
+			lkey = rpcGroup.getLKey(dataBuffer);
 		} catch (Exception e) {
 			throw new IOException(e);
 		}
@@ -147,8 +146,8 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		if (postSend != null){
 			int index = (int) postSend.getWrMod(0).getWr_id();
 			sendBufs[index].putInt(0, ticket);
-			sendBufs[index].position(headerSize);
-			int written = headerSize + message.write(sendBufs[index]);
+			sendBufs[index].position(HEADERSIZE);
+			int written = HEADERSIZE + message.write(sendBufs[index]);
 			postSend.getWrMod(0).getSgeMod(0).setLength(written);
 			postSend.getWrMod(0).setSend_flags(IbvSendWR.IBV_SEND_SIGNALED);
 			if (written <= maxinline) {
@@ -188,7 +187,7 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 			int index = (int) wc.getWr_id();
 			ByteBuffer recvBuffer = recvBufs[index];
 			int ticket = recvBuffer.getInt(0);
-			recvBuffer.position(headerSize);
+			recvBuffer.position(HEADERSIZE);
 			dispatchReceive(recvBuffer, ticket, index);
 		} else if (wc.getOpcode() == 0) {
 			//send completion

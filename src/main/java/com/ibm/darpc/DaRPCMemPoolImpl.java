@@ -9,57 +9,138 @@ import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
 import java.nio.channels.FileChannel.MapMode;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.LinkedBlockingQueue;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.ibm.disni.rdma.RdmaEndpoint;
 import com.ibm.disni.rdma.verbs.IbvMr;
 import com.ibm.disni.rdma.verbs.IbvPd;
 import com.ibm.disni.util.MemoryUtils;
 
-public class DaRPCMemPoolImpl implements DaRPCMemPool {
+public class DaRPCMemPoolImpl<E extends DaRPCEndpoint<R,T>, R extends DaRPCMessage, T extends DaRPCMessage> implements DaRPCMemPool<E,R,T> {
+	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	private static final int defaultAllocationSize = 16 * 1024 * 1024; // 16MB
 	private final int allocationSize;
 	private final int alignmentSize;
+	private final int allocationLimit;
+	private int currentAllocationSize;
 	private String hugePageFile;
-	int offset;
-	ByteBuffer byteBuffer;
-	IbvPd pd;
-	IbvMr mr;
-	int access;
-	LinkedList<ByteBuffer> freeList;
+	private ConcurrentHashMap<Long, IbvMr> memoryRegions;
+	private int access;
+	private DaRPCEndpointGroup<E,R,T> endpointGroup;
+	private ConcurrentHashMap<IbvPd, LinkedBlockingQueue<ByteBuffer>> pdMap;
+	private List<IbvMr> mrs;
 
-	public DaRPCMemPoolImpl(String hugePagePath, int allocationSize, int alignmentSize) throws IllegalArgumentException {
+	public DaRPCMemPoolImpl(String hugePagePath, int allocationSize, int alignmentSize, int allocationLimit) throws IllegalArgumentException {
 		if (hugePagePath == null) {
-			System.out.println("Hugepage path must be set");
+			logger.error("Hugepage path must be set");
 			throw new IllegalArgumentException("Hugepage path must be set");
 		}
-
 		this.allocationSize = allocationSize;
 		this.alignmentSize = alignmentSize;
+		this.allocationLimit = allocationLimit;
 		hugePageFile = hugePagePath + "/darpcmempoolimpl.mem";
-
+		this.currentAllocationSize = 0;
 		this.access = IbvMr.IBV_ACCESS_LOCAL_WRITE | IbvMr.IBV_ACCESS_REMOTE_WRITE | IbvMr.IBV_ACCESS_REMOTE_READ;
+		this.pdMap = new ConcurrentHashMap<IbvPd, LinkedBlockingQueue<ByteBuffer>>();
+		this.mrs = new LinkedList<IbvMr>();
 	}
 
 	public DaRPCMemPoolImpl(String hugePagePath) throws IllegalArgumentException {
-		this(hugePagePath, defaultAllocationSize, 0);
+		this(hugePagePath, defaultAllocationSize, 0, 16 * defaultAllocationSize);
+	}
+
+	@Override
+	public void init(DaRPCEndpointGroup<E,R,T> endpointGroup) {
+		this.endpointGroup = endpointGroup;
+	}
+
+	@Override
+	public void close() throws IOException {
+		synchronized(this) {
+			for (IbvMr m : mrs) {
+				try {
+					m.deregMr().execute().free();
+				} catch (IOException e) {
+					System.out.println("Could not unregister memory region.");
+					e.printStackTrace();
+				}
+			}
+			mrs = null;
+			File f = new File(hugePageFile);
+			f.delete();
+		}
+	}
+
+	@Override
+	public ByteBuffer getBuffer(RdmaEndpoint endpoint) throws IOException, NoSuchElementException {
+		LinkedBlockingQueue<ByteBuffer> freeList = pdMap.get(endpoint.getPd());
+
+		if (freeList == null) {
+			synchronized(this) {
+				freeList = pdMap.get(endpoint.getPd());
+				if (freeList == null) {
+					freeList = new LinkedBlockingQueue<ByteBuffer>();
+					pdMap.put(endpoint.getPd(), freeList);
+				}
+			}
+		}
+
+		ByteBuffer r = freeList.poll();
+
+		if (r == null) {
+			synchronized(this) {
+				r = freeList.poll();
+				if (r == null) {
+					allocateHugePageBuffer(freeList, endpoint.getPd());
+				}
+				r = freeList.poll();
+				if (r == null) {
+					logger.error("Failed to allocate more buffers.");
+					throw new NoSuchElementException("Failed to allocate more buffers.");
+				}
+			}
+		}
+		r.clear();
+		return r;
+	}
+
+	@Override
+	public void freeBuffer(RdmaEndpoint endpoint, ByteBuffer buffer) {
+		LinkedBlockingQueue<ByteBuffer> freeList = pdMap.get(endpoint.getPd());
+		freeList.add(buffer);
+	}
+
+	@Override
+	public int getLKey(ByteBuffer buffer) throws IllegalArgumentException {
+		return memoryRegions.get(MemoryUtils.getAddress(buffer)).getLkey();
 	}
 
 	// allocate a buffer from hugepages
-	ByteBuffer allocateHugePageBuffer() throws IOException {
+	private void allocateHugePageBuffer(LinkedBlockingQueue<ByteBuffer> freeList, IbvPd pd) throws IOException {
+		int totalAllocationSize = allocationSize + alignmentSize;
+		if ((currentAllocationSize + totalAllocationSize) > allocationLimit) {
+			logger.error("Out of memory. Cannot allocate more buffers from hugepages.");
+			throw new IOException("Out of memory. Cannot allocate more buffers from hugepages.");
+		}
 		RandomAccessFile randomFile = null;
 		try {
 			randomFile = new RandomAccessFile(hugePageFile, "rw");
 		} catch (FileNotFoundException e) {
-			System.out.println("Path " + hugePageFile + " to huge page path/file cannot be accessed.");
+			logger.error("Path " + hugePageFile + " to huge page path/file cannot be accessed.");
 			throw e;
 		}
 		try {
-			randomFile.setLength(allocationSize + alignmentSize);
+			randomFile.setLength(totalAllocationSize);
 		} catch (IOException e) {
-			System.out.println("Coult not set allocation length of mapped random access file on huge page directory.");
-			System.out.println("allocaiton size = " + allocationSize + " , alignment size =  " + alignmentSize);
-			System.out.println("allocation size and alignment must be a multiple of the hugepage size.");
+			logger.error("Could not set allocation length of mapped random access file on huge page directory.");
+			logger.error("allocaiton size = " + allocationSize + " , alignment size =  " + alignmentSize);
+			logger.error("allocation size and alignment must be a multiple of the hugepage size.");
 			randomFile.close();
 			throw e;
 		}
@@ -67,13 +148,15 @@ public class DaRPCMemPoolImpl implements DaRPCMemPool {
 		MappedByteBuffer mappedBuffer = null;
 		try {
 			mappedBuffer = channel.map(MapMode.READ_WRITE, 0,
-					allocationSize + alignmentSize);
+					totalAllocationSize);
 		} catch (IOException e) {
-			System.out.println("Could not map the huge page file on path " + hugePageFile);
+			logger.error("Could not map the huge page file on path " + hugePageFile);
 			randomFile.close();
 			throw e;
 		}
 		randomFile.close();
+
+		currentAllocationSize += totalAllocationSize;
 
 		long rawBufferAddress = MemoryUtils.getAddress(mappedBuffer);
 		if (alignmentSize > 0) {
@@ -82,73 +165,20 @@ public class DaRPCMemPoolImpl implements DaRPCMemPool {
 				mappedBuffer.position(alignmentSize - (int)alignmentOffset);
 			}
 		}
-		ByteBuffer b = mappedBuffer.slice();
-		return (b);
-	}
 
+		ByteBuffer alignedBuffer = mappedBuffer.slice();
 
-	@Override
-	public void close() throws IOException {
-		synchronized(this) {
-			try {
-				mr.deregMr().execute().free();
-			} catch (IOException e) {
-				System.out.println("Could not unregister memory region.");
-				e.printStackTrace();
-			}
-			File f = new File(hugePageFile);
-			f.delete();
+		IbvMr mr = pd.regMr(alignedBuffer, access).execute().free().getMr();
+		mrs.add(mr);
+		int sliceSize = endpointGroup.getBufferSize() + DaRPCEndpoint.HEADERSIZE;
+		int i = 0;
+		while ((i * sliceSize + sliceSize) < alignedBuffer.capacity()) {
+			alignedBuffer.position(i * sliceSize);
+			alignedBuffer.limit(i * sliceSize + sliceSize);
+			ByteBuffer buffer = alignedBuffer.slice();
+			freeList.add(buffer);
+			memoryRegions.put(MemoryUtils.getAddress(buffer), mr);
+			i++;
 		}
-	}
-
-	@Override
-	public ByteBuffer getBuffer(RdmaEndpoint endpoint, int size) throws IOException, NoSuchElementException {
-		ByteBuffer r = null;
-
-		synchronized(this) {
-			if (pd == null) {
-				pd = endpoint.getPd();
-			} else if (!pd.equals(endpoint.getPd())) {
-				throw new IOException("No support for more than one PD");
-			}
-			if (mr == null) {
-				byteBuffer = allocateHugePageBuffer();
-				mr = pd.regMr(byteBuffer, access).execute().free().getMr();
-			}
-
-			if (freeList == null) {
-				offset = size;
-				freeList = new LinkedList<ByteBuffer>();
-				int i = 0;
-				while ((i * offset + offset) < byteBuffer.capacity()) {
-					byteBuffer.position(i * offset);
-					byteBuffer.limit(i * offset + offset);
-					ByteBuffer b = byteBuffer.slice();
-					freeList.addLast(b);
-					i++;
-				}
-			}
-			else
-			{
-				if (size != offset) {
-					throw new IOException("Requested size does not match block size managed by memory pool.");
-				}
-			}
-			r = freeList.removeFirst();
-			r.clear();
-		}
-		return r;
-	}
-
-	@Override
-	public void freeBuffer(RdmaEndpoint endpoint, ByteBuffer b) {
-		synchronized(this) {
-			freeList.addLast(b);
-		}
-	}
-
-	@Override
-	public int getLKey(RdmaEndpoint endpoint, ByteBuffer b) throws IllegalArgumentException {
-		return mr.getLkey();
 	}
 }
