@@ -44,10 +44,6 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 	public abstract void dispatchSend(int ticket) throws IOException;
 
 	private DaRPCEndpointGroup<? extends DaRPCEndpoint<R,T>, R, T> rpcGroup;
-	private ByteBuffer dataBuffer;
-	private int lkey;
-	private ByteBuffer receiveBuffer;
-	private ByteBuffer sendBuffer;
 	private ByteBuffer[] recvBufs;
 	private ByteBuffer[] sendBufs;
 	private SVCPostRecv[] recvCall;
@@ -86,41 +82,22 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 	}
 
 	public void init() throws IOException {
-		int sendBufferOffset = recvPipelineLength * rawBufferSize;
-
-		/* Main data buffer for sends and receives. Will be split into two regions,
-		 * one for sends and one for receives.
-		 */
-		try {
-			dataBuffer = rpcGroup.getWRBuffer(this);
-			lkey = rpcGroup.getLKey(dataBuffer);
-		} catch (Exception e) {
-			throw new IOException(e);
-		}
-
-		/* Receive memory region is the first half of the main buffer. */
-		dataBuffer.limit(dataBuffer.position() + sendBufferOffset);
-		receiveBuffer = dataBuffer.slice();
-
-		/* Send memory region is the second half of the main buffer. */
-		dataBuffer.position(sendBufferOffset);
-		dataBuffer.limit(dataBuffer.capacity());
-		sendBuffer = dataBuffer.slice();
-
 		for(int i = 0; i < sendPipelineLength; i++) {
-			/* Create single send buffers within the send region in form of slices. */
-			sendBuffer.position(i * rawBufferSize);
-			sendBuffer.limit(sendBuffer.position() + rawBufferSize);
-			sendBufs[i] = sendBuffer.slice();
+			try {
+				sendBufs[i] = rpcGroup.getWRBuffer(this);
+			} catch (Exception e) {
+				throw new IOException(e);
+			}
 
 			this.sendCall[i] = setupSendTask(i);
 			freePostSend.add(sendCall[i]);
 		}
 		for(int i = 0; i < recvPipelineLength; i++) {
-			/* Create single receive buffers within the receive region in form of slices. */
-			receiveBuffer.position(i * rawBufferSize);
-			receiveBuffer.limit(receiveBuffer.position() + rawBufferSize);
-			recvBufs[i] = receiveBuffer.slice();
+			try {
+				recvBufs[i] = rpcGroup.getWRBuffer(this);
+			} catch (Exception e) {
+				throw new IOException(e);
+			}
 
 			this.recvCall[i] = setupRecvTask(i);
 			recvCall[i].execute();
@@ -129,7 +106,12 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 
 	@Override
 	public synchronized void close() throws IOException, InterruptedException {
-		rpcGroup.freeBuffer(this, dataBuffer);
+		for(int i = 0; i < sendPipelineLength; i++) {
+			rpcGroup.freeBuffer(this, sendBufs[i]);
+		}
+		for(int i = 0; i < recvPipelineLength; i++) {
+			rpcGroup.freeBuffer(this, recvBufs[i]);
+		}
 		super.close();
 	}
 
@@ -207,7 +189,7 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		IbvSge sge = new IbvSge();
 		sge.setAddr(MemoryUtils.getAddress(sendBufs[wrid]));
 		sge.setLength(rawBufferSize);
-		sge.setLkey(lkey);
+		sge.setLkey(rpcGroup.getLKey(sendBufs[wrid]));
 		sgeList.add(sge);
 
 		IbvSendWR sendWR = new IbvSendWR();
@@ -227,7 +209,7 @@ public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessa
 		IbvSge sge = new IbvSge();
 		sge.setAddr(MemoryUtils.getAddress(recvBufs[wrid]));
 		sge.setLength(rawBufferSize);
-		sge.setLkey(lkey);
+		sge.setLkey(rpcGroup.getLKey(recvBufs[wrid]));
 		sgeList.add(sge);
 
 		IbvRecvWR recvWR = new IbvRecvWR();

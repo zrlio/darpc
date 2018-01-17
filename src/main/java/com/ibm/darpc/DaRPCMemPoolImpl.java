@@ -25,30 +25,34 @@ import com.ibm.disni.util.MemoryUtils;
 public class DaRPCMemPoolImpl<E extends DaRPCEndpoint<R,T>, R extends DaRPCMessage, T extends DaRPCMessage> implements DaRPCMemPool<E,R,T> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	private static final int defaultAllocationSize = 16 * 1024 * 1024; // 16MB
+	private static final String hugePageFileName = "/darpcmempoolimpl.mem";
 	private final int allocationSize;
 	private final int alignmentSize;
 	private final int allocationLimit;
 	private int currentAllocationSize;
-	private String hugePageFile;
+	private final String hugePagePath;
 	private ConcurrentHashMap<Long, IbvMr> memoryRegions;
 	private int access;
 	private DaRPCEndpointGroup<E,R,T> endpointGroup;
 	private ConcurrentHashMap<IbvPd, LinkedBlockingQueue<ByteBuffer>> pdMap;
 	private List<IbvMr> mrs;
+	private List<String> hugePageFiles;
 
 	public DaRPCMemPoolImpl(String hugePagePath, int allocationSize, int alignmentSize, int allocationLimit) throws IllegalArgumentException {
 		if (hugePagePath == null) {
 			logger.error("Hugepage path must be set");
 			throw new IllegalArgumentException("Hugepage path must be set");
 		}
+		this.hugePagePath = hugePagePath;
 		this.allocationSize = allocationSize;
 		this.alignmentSize = alignmentSize;
 		this.allocationLimit = allocationLimit;
-		hugePageFile = hugePagePath + "/darpcmempoolimpl.mem";
 		this.currentAllocationSize = 0;
 		this.access = IbvMr.IBV_ACCESS_LOCAL_WRITE | IbvMr.IBV_ACCESS_REMOTE_WRITE | IbvMr.IBV_ACCESS_REMOTE_READ;
 		this.pdMap = new ConcurrentHashMap<IbvPd, LinkedBlockingQueue<ByteBuffer>>();
 		this.mrs = new LinkedList<IbvMr>();
+		memoryRegions = new ConcurrentHashMap<Long, IbvMr>();
+		hugePageFiles = new LinkedList<String>();
 	}
 
 	public DaRPCMemPoolImpl(String hugePagePath) throws IllegalArgumentException {
@@ -67,13 +71,16 @@ public class DaRPCMemPoolImpl<E extends DaRPCEndpoint<R,T>, R extends DaRPCMessa
 				try {
 					m.deregMr().execute().free();
 				} catch (IOException e) {
-					System.out.println("Could not unregister memory region.");
+					logger.error("Could not unregister memory region.");
 					e.printStackTrace();
 				}
 			}
 			mrs = null;
-			File f = new File(hugePageFile);
-			f.delete();
+			for (String fileName : hugePageFiles) {
+				File f = new File(fileName);
+				f.delete();
+			}
+			hugePageFiles = null;
 		}
 	}
 
@@ -125,16 +132,27 @@ public class DaRPCMemPoolImpl<E extends DaRPCEndpoint<R,T>, R extends DaRPCMessa
 	private void allocateHugePageBuffer(LinkedBlockingQueue<ByteBuffer> freeList, IbvPd pd) throws IOException {
 		int totalAllocationSize = allocationSize + alignmentSize;
 		if ((currentAllocationSize + totalAllocationSize) > allocationLimit) {
-			logger.error("Out of memory. Cannot allocate more buffers from hugepages.");
-			throw new IOException("Out of memory. Cannot allocate more buffers from hugepages.");
+			logger.error("Out of memory. Cannot allocate more buffers from hugepages. "
+					+ "allocationSize = " + allocationSize
+					+ ", alignmentSize = " + alignmentSize
+					+ ", currentAllocationSize = " + currentAllocationSize
+					+ ", allocationLimit = " + allocationLimit);
+			throw new IOException("Out of memory. Cannot allocate more buffers from hugepages."
+					+ "allocationSize = " + allocationSize
+					+ ", alignmentSize = " + alignmentSize
+					+ ", currentAllocationSize = " + currentAllocationSize
+					+ ", allocationLimit = " + allocationLimit);
+
 		}
+		String newFile = this.hugePagePath + hugePageFileName + System.currentTimeMillis();
 		RandomAccessFile randomFile = null;
 		try {
-			randomFile = new RandomAccessFile(hugePageFile, "rw");
+			randomFile = new RandomAccessFile(newFile, "rw");
 		} catch (FileNotFoundException e) {
-			logger.error("Path " + hugePageFile + " to huge page path/file cannot be accessed.");
+			logger.error("Path " + newFile + " to huge page path/file cannot be accessed.");
 			throw e;
 		}
+		hugePageFiles.add(newFile);
 		try {
 			randomFile.setLength(totalAllocationSize);
 		} catch (IOException e) {
@@ -150,7 +168,7 @@ public class DaRPCMemPoolImpl<E extends DaRPCEndpoint<R,T>, R extends DaRPCMessa
 			mappedBuffer = channel.map(MapMode.READ_WRITE, 0,
 					totalAllocationSize);
 		} catch (IOException e) {
-			logger.error("Could not map the huge page file on path " + hugePageFile);
+			logger.error("Could not map the huge page file on path " + newFile);
 			randomFile.close();
 			throw e;
 		}
