@@ -24,7 +24,7 @@ package com.ibm.darpc;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import java.nio.ByteBuffer;
 import com.ibm.disni.rdma.verbs.*;
 import com.ibm.disni.rdma.*;
 
@@ -32,26 +32,34 @@ import com.ibm.disni.rdma.*;
 public abstract class DaRPCEndpointGroup<E extends DaRPCEndpoint<R,T>, R extends DaRPCMessage, T extends DaRPCMessage> extends RdmaEndpointGroup<E> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
 	private static int DARPC_VERSION = 50;
-	
+
 	private int recvQueueSize;
 	private int sendQueueSize;
 	private int timeout;
 	private int bufferSize;
 	private int maxInline;
-	
+	private DaRPCMemPool<E,R,T> memPool;
+
 	public static int getVersion(){
 		return DARPC_VERSION;
-	}	
-	
-	protected DaRPCEndpointGroup(DaRPCProtocol<R,T> protocol, int timeout, int maxinline, int recvQueue, int sendQueue) throws Exception {
+	}
+
+	protected DaRPCEndpointGroup(DaRPCProtocol<R,T> protocol, DaRPCMemPool<E,R,T> memPool, int timeout, int maxinline, int recvQueue, int sendQueue) throws Exception {
 		super(timeout);
 		this.recvQueueSize = recvQueue;
-		this.sendQueueSize = Math.max(recvQueue, sendQueue);
+		this.sendQueueSize = sendQueue;
 		this.timeout = timeout;
 		this.bufferSize = Math.max(protocol.createRequest().size(), protocol.createResponse().size());
 		this.maxInline = maxinline;
-	}	
-	
+		this.memPool = memPool;
+	}
+
+	@Override
+	public void init(RdmaEndpointFactory<E> factory) {
+		super.init(factory);
+		memPool.init(this);
+	}
+
 	protected synchronized IbvQP createQP(RdmaCmId id, IbvPd pd, IbvCQ cq) throws IOException{
 		IbvQPInitAttr attr = new IbvQPInitAttr();
 		attr.cap().setMax_recv_wr(recvQueueSize);
@@ -61,33 +69,47 @@ public abstract class DaRPCEndpointGroup<E extends DaRPCEndpoint<R,T>, R extends
 		attr.cap().setMax_inline_data(maxInline);
 		attr.setQp_type(IbvQP.IBV_QPT_RC);
 		attr.setRecv_cq(cq);
-		attr.setSend_cq(cq);		
+		attr.setSend_cq(cq);
 		IbvQP qp = id.createQP(pd, attr);
 		return qp;
 	}
-	
+
 	public int getTimeout() {
 		return timeout;
 	}
-	
+
 	public int getBufferSize() {
 		return bufferSize;
-	}	
+	}
+
 
 	public void close() throws IOException, InterruptedException {
 		super.close();
+		memPool.close();
 		logger.info("rpc group down");
-	}	
-	
+	}
+
 	public int recvQueueSize() {
 		return recvQueueSize;
 	}
-	
+
 	public int sendQueueSize() {
 		return sendQueueSize;
-	}		
-	
+	}
+
 	public int getMaxInline() {
 		return maxInline;
+	}
+
+	ByteBuffer getWRBuffer(RdmaEndpoint endpoint) throws Exception {
+		return memPool.getBuffer(endpoint);
+	}
+
+	void freeBuffer(RdmaEndpoint endpoint, ByteBuffer b) throws IOException {
+		memPool.freeBuffer(endpoint, b);
+	}
+
+	int getLKey(ByteBuffer b) {
+		return memPool.getLKey(b);
 	}
 }

@@ -30,7 +30,11 @@
       <name>Animesh Trivedi</name>
       <email>atr@zurich.ibm.com</email>
     </developer>
-  </developers>
+    <developer>
+      <name>Adrian Schuepbach</name>
+      <email>dri@zurich.ibm.com</email>
+    </developer>
+   </developers>
 
   <scm>
     <connection>scm:git:git://github.com/zrlio/darpc.git</connection>
