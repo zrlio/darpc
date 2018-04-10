@@ -5,7 +5,7 @@
   <groupId>com.ibm.darpc</groupId>
   <artifactId>darpc</artifactId>
   <packaging>jar</packaging>
-  <version>1.4</version>
+  <version>1.5</version>
   <name>darpc</name>
   <description>DaRPC (Data Center RPC) is a Java library for low latency Remote Procedure Call (RPC)</description>
   <url>http://github.com/zrlio/darpc</url>
