@@ -22,9 +22,7 @@
 package com.ibm.darpc.examples.client;
 
 import java.io.FileOutputStream;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.URI;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -73,7 +71,7 @@ public class DaRPCClient {
 		protected double writeOps;
 		protected double errorOps;		
 		
-		public ClientThread(DaRPCClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp, int loop, URI uri, int mode, int rpcpipeline, int clienttimeout){
+		public ClientThread(DaRPCClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp, int loop, InetSocketAddress address, int mode, int rpcpipeline, int clienttimeout){
 			this.clientEp = clientEp;
 			this.loop = loop;
 			this.queryMode = mode;
@@ -179,7 +177,7 @@ public class DaRPCClient {
 	}
 	
 	public void launch(String[] args) throws Exception {
-		String ipAddress = ""; 
+		String host = ""; 
 		int size = 24;
 		int loop = 100;
 		int threadCount = 1;
@@ -218,7 +216,7 @@ public class DaRPCClient {
 		
 		try {
 			CommandLine line = parser.parse(options, args);
-			ipAddress = line.getOptionValue(addressOption.getOpt());
+			host = line.getOptionValue(addressOption.getOpt());
 
 			if (line.hasOption(loopOption.getOpt())) {
 				loop = Integer.parseInt(line.getOptionValue(loopOption.getOpt()));
@@ -280,16 +278,17 @@ public class DaRPCClient {
 		ClientThread[] benchmarkTask = new ClientThread[threadCount];
 		
 		RdmaRpcProtocol rpcProtocol = new RdmaRpcProtocol();
-		System.out.println("starting.. threads " + threadCount + ", connections " + connections + ", server " + ipAddress + ", recvQueue " + recvQueue + ", sendQueue" + sendQueue + ", batchSize " + batchSize + ", mode " + mode);
+		System.out.println("starting.. threads " + threadCount + ", connections " + connections + ", server " + host + ", recvQueue " + recvQueue + ", sendQueue" + sendQueue + ", batchSize " + batchSize + ", mode " + mode);
 		DaRPCClientGroup<RdmaRpcRequest, RdmaRpcResponse> group = DaRPCClientGroup.createClientGroup(rpcProtocol, 100, maxinline, recvQueue, sendQueue);
-		URI uri = URI.create("rdma://" + ipAddress + ":" + 1919);
+		InetSocketAddress address = new InetSocketAddress(host, 1919);
+		
 		int k = 0;
 		for (int i = 0; i < rpcConnections.length; i++){
 			DaRPCClientEndpoint<RdmaRpcRequest, RdmaRpcResponse> clientEp = group.createEndpoint();
-			clientEp.connect(uri);
+			clientEp.connect(address, 1000);
 			rpcConnections[i] = clientEp;
 			for (int j = 0; j < threadsperconnection; j++){
-				benchmarkTask[k] = new ClientThread(clientEp, loop, uri, mode, batchSize, clienttimeout);
+				benchmarkTask[k] = new ClientThread(clientEp, loop, address, mode, batchSize, clienttimeout);
 				k++;
 			}
 		}

@@ -21,10 +21,7 @@
 
 package com.ibm.darpc.examples.server;
 
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
-import java.net.URI;
-
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.DefaultParser;
@@ -40,7 +37,7 @@ import com.ibm.darpc.examples.protocol.RdmaRpcResponse;
 import com.ibm.disni.rdma.*;
 
 public class DaRPCServer {
-	private String ipAddress; 
+	private String host; 
 	private int poolsize = 3;
 	private int recvQueue = 16;
 	private int sendQueue = 16;
@@ -48,7 +45,7 @@ public class DaRPCServer {
 	private int servicetimeout = 0;
 	private boolean polling = false;
 	private int maxinline = 0;
-	private int connections = 16;
+//	private int connections = 16;
 	
 	public void run() throws Exception{
 		long[] clusterAffinities = new long[poolsize];
@@ -56,12 +53,12 @@ public class DaRPCServer {
 			long cpu = 1L << i;
 			clusterAffinities[i] = cpu;
 		}
-		System.out.println("running...server " + ipAddress + ", poolsize " + poolsize + ", maxinline " + maxinline + ", polling " + polling + ", recvQueue " + recvQueue + ", sendQueue " + sendQueue + ", wqSize " + wqSize + ", rpcservice-timeout " + servicetimeout);
+		System.out.println("running...server " + host + ", poolsize " + poolsize + ", maxinline " + maxinline + ", polling " + polling + ", recvQueue " + recvQueue + ", sendQueue " + sendQueue + ", wqSize " + wqSize + ", rpcservice-timeout " + servicetimeout);
 		RdmaRpcService rpcService = new RdmaRpcService(servicetimeout);
 		DaRPCServerGroup<RdmaRpcRequest, RdmaRpcResponse> group = DaRPCServerGroup.createServerGroup(rpcService, clusterAffinities, -1, maxinline, polling, recvQueue, sendQueue, wqSize, 32); 
 		RdmaServerEndpoint<DaRPCServerEndpoint<RdmaRpcRequest, RdmaRpcResponse>> serverEp = group.createServerEndpoint();
-		URI uri = URI.create("rdma://" + ipAddress + ":" + 1919);
-		serverEp.bind(uri);
+		InetSocketAddress address = new InetSocketAddress(host, 1919);
+		serverEp.bind(address, 100);
 		while(true){
 			serverEp.accept();
 		}		
@@ -73,7 +70,6 @@ public class DaRPCServer {
 		Option servicetimeoutOption = Option.builder("t").desc("service timeout").hasArg().build();
 		Option pollingOption = Option.builder("d").desc("if polling, default false").build();
 		Option maxinlineOption = Option.builder("i").desc("max inline data").hasArg().build();
-		Option connectionsOption = Option.builder("c").desc("number of connections").hasArg().build();
 		Option wqSizeOption = Option.builder("w").desc("wq size").hasArg().build();
 		Option recvQueueOption = Option.builder("r").desc("receive queue").hasArg().build();
 		Option sendQueueOption = Option.builder("s").desc("send queue").hasArg().build();
@@ -84,7 +80,6 @@ public class DaRPCServer {
 		options.addOption(servicetimeoutOption);
 		options.addOption(pollingOption);
 		options.addOption(maxinlineOption);
-		options.addOption(connectionsOption);
 		options.addOption(wqSizeOption);
 		options.addOption(recvQueueOption);
 		options.addOption(sendQueueOption);
@@ -93,7 +88,7 @@ public class DaRPCServer {
 
 		try {
 			CommandLine line = parser.parse(options, args);
-			ipAddress = line.getOptionValue(addressOption.getOpt());
+			host = line.getOptionValue(addressOption.getOpt());
 
 			if (line.hasOption(poolsizeOption.getOpt())) {
 				poolsize = Integer.parseInt(line.getOptionValue(poolsizeOption.getOpt()));
@@ -106,9 +101,6 @@ public class DaRPCServer {
 			}
 			if (line.hasOption(maxinlineOption.getOpt())) {
 				maxinline = Integer.parseInt(line.getOptionValue(maxinlineOption.getOpt()));
-			}
-			if (line.hasOption(connectionsOption.getOpt())) {
-				connections = Integer.parseInt(line.getOptionValue(connectionsOption.getOpt()));
 			}
 			if (line.hasOption(wqSizeOption.getOpt())) {
 				wqSize = Integer.parseInt(line.getOptionValue(wqSizeOption.getOpt()));
