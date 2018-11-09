@@ -5,7 +5,7 @@
   <groupId>com.ibm.darpc</groupId>
   <artifactId>darpc</artifactId>
   <packaging>jar</packaging>
-  <version>1.7</version>
+  <version>1.8</version>
   <name>darpc</name>
   <description>DaRPC (Data Center RPC) is a Java library for low latency Remote Procedure Call (RPC)</description>
   <url>http://github.com/zrlio/darpc</url>
@@ -94,10 +94,17 @@
     </profile>
   </profiles>
 
-  <build>
+	<build>
+    <resources>
+      <resource>
+        <directory>${project.basedir}</directory>
+        <targetPath>META-INF/</targetPath>
+        <includes>
+          <include>LICENSE</include>
+        </includes>
+      </resource>
+    </resources>
     <plugins>
-      <!-- any other plugins -->
-
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-jar-plugin</artifactId>
@@ -110,7 +117,6 @@
           </execution>
         </executions>
       </plugin>
-
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
         <executions>
@@ -128,7 +134,6 @@
           </execution>
         </executions>
       </plugin>
-
       <plugin>
         <groupId>org.sonatype.plugins</groupId>
         <artifactId>nexus-staging-maven-plugin</artifactId>
@@ -140,7 +145,6 @@
           <autoReleaseAfterClose>false</autoReleaseAfterClose>
         </configuration>
       </plugin>
-
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-source-plugin</artifactId>
@@ -169,10 +173,23 @@
             </goals>
           </execution>
         </executions>
+			</plugin>
+      <plugin>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
+        <version>0.12</version>
+        <configuration>
+          <licenses>
+            <license implementation="org.apache.rat.analysis.license.SimplePatternBasedLicense">
+              <licenseFamilyCategory>AL20</licenseFamilyCategory>
+              <licenseFamilyName>Apache License, 2.0</licenseFamilyName>
+            </license>
+          </licenses>
+          <excludes>
+            <exclude>libdisni/**/*.m4</exclude>
+          </excludes>
+        </configuration>
       </plugin>
-
-
-
     </plugins>
   </build>
 
