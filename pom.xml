@@ -185,10 +185,7 @@
               <licenseFamilyName>Apache License, 2.0</licenseFamilyName>
             </license>
           </licenses>
-          <excludes>
-            <exclude>libdisni/**/*.m4</exclude>
-          </excludes>
-        </configuration>
+       </configuration>
       </plugin>
     </plugins>
   </build>
