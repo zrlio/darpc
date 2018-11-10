@@ -28,10 +28,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.ReentrantLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.ibm.disni.rdma.verbs.IbvCQ;
-import com.ibm.disni.rdma.verbs.IbvWC;
-import com.ibm.disni.rdma.verbs.RdmaCmId;
-import com.ibm.disni.rdma.verbs.SVCPollCq;
+import com.ibm.disni.verbs.IbvCQ;
+import com.ibm.disni.verbs.IbvWC;
+import com.ibm.disni.verbs.RdmaCmId;
+import com.ibm.disni.verbs.SVCPollCq;
 
 public class DaRPCClientEndpoint<R extends DaRPCMessage, T extends DaRPCMessage> extends DaRPCEndpoint<R,T> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");

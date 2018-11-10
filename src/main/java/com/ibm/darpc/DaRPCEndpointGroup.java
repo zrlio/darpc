@@ -25,8 +25,8 @@ import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ibm.disni.rdma.verbs.*;
-import com.ibm.disni.rdma.*;
+import com.ibm.disni.verbs.*;
+import com.ibm.disni.*;
 
 
 public abstract class DaRPCEndpointGroup<E extends DaRPCEndpoint<R,T>, R extends DaRPCMessage, T extends DaRPCMessage> extends RdmaEndpointGroup<E> {

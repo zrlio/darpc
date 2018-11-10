@@ -32,9 +32,9 @@ import java.util.concurrent.atomic.AtomicLong;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ibm.disni.rdma.verbs.*;
+import com.ibm.disni.verbs.*;
 import com.ibm.disni.util.MemoryUtils;
-import com.ibm.disni.rdma.*;
+import com.ibm.disni.*;
 
 public abstract class DaRPCEndpoint<R extends DaRPCMessage, T extends DaRPCMessage> extends RdmaEndpoint {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");

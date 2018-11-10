@@ -23,11 +23,11 @@ package com.ibm.darpc;
 
 import java.io.IOException;
 
-import com.ibm.disni.rdma.RdmaCqProvider;
-import com.ibm.disni.rdma.RdmaEndpointFactory;
-import com.ibm.disni.rdma.verbs.IbvCQ;
-import com.ibm.disni.rdma.verbs.IbvQP;
-import com.ibm.disni.rdma.verbs.RdmaCmId;
+import com.ibm.disni.RdmaCqProvider;
+import com.ibm.disni.RdmaEndpointFactory;
+import com.ibm.disni.verbs.IbvCQ;
+import com.ibm.disni.verbs.IbvQP;
+import com.ibm.disni.verbs.RdmaCmId;
 
 public class DaRPCClientGroup<R extends DaRPCMessage, T extends DaRPCMessage> extends DaRPCEndpointGroup<DaRPCClientEndpoint<R,T>, R, T> {
 	public static <R extends DaRPCMessage, T extends DaRPCMessage> DaRPCClientGroup<R, T> createClientGroup(DaRPCProtocol<R, T> protocol, int timeout, int maxinline, int recvQueue, int sendQueue) throws Exception {
