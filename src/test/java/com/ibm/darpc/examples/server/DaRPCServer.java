@@ -34,7 +34,7 @@ import com.ibm.darpc.DaRPCServerEndpoint;
 import com.ibm.darpc.DaRPCServerGroup;
 import com.ibm.darpc.examples.protocol.RdmaRpcRequest;
 import com.ibm.darpc.examples.protocol.RdmaRpcResponse;
-import com.ibm.disni.rdma.*;
+import com.ibm.disni.*;
 
 public class DaRPCServer {
 	private String host; 

@@ -28,8 +28,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ibm.disni.rdma.verbs.RdmaCmEvent;
-import com.ibm.disni.rdma.verbs.RdmaCmId;
+import com.ibm.disni.verbs.RdmaCmEvent;
+import com.ibm.disni.verbs.RdmaCmId;
 
 public class DaRPCServerEndpoint<R extends DaRPCMessage, T extends DaRPCMessage> extends DaRPCEndpoint<R,T> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");

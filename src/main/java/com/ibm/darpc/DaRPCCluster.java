@@ -22,8 +22,8 @@
 package com.ibm.darpc;
 
 import java.io.IOException;
-import com.ibm.disni.rdma.verbs.*;
-import com.ibm.disni.rdma.*;
+import com.ibm.disni.verbs.*;
+import com.ibm.disni.*;
 
 public class DaRPCCluster<R extends DaRPCMessage, T extends DaRPCMessage> extends RdmaCqProcessor<DaRPCEndpoint<R,T>>{
 	public DaRPCCluster(IbvContext context, int cqSize, int wrSize, long affinity, int clusterId,

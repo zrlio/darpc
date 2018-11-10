@@ -27,12 +27,12 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import com.ibm.disni.rdma.RdmaCqProvider;
-import com.ibm.disni.rdma.RdmaEndpointFactory;
-import com.ibm.disni.rdma.verbs.IbvCQ;
-import com.ibm.disni.rdma.verbs.IbvContext;
-import com.ibm.disni.rdma.verbs.IbvQP;
-import com.ibm.disni.rdma.verbs.RdmaCmId;
+import com.ibm.disni.RdmaCqProvider;
+import com.ibm.disni.RdmaEndpointFactory;
+import com.ibm.disni.verbs.IbvCQ;
+import com.ibm.disni.verbs.IbvContext;
+import com.ibm.disni.verbs.IbvQP;
+import com.ibm.disni.verbs.RdmaCmId;
 
 public class DaRPCServerGroup<R extends DaRPCMessage, T extends DaRPCMessage> extends DaRPCEndpointGroup<DaRPCServerEndpoint<R,T>, R, T> {
 	private static final Logger logger = LoggerFactory.getLogger("com.ibm.darpc");
