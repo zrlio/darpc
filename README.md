@@ -121,7 +121,7 @@ Start the server
 	RdmaServerEndpoint<RpcClientEndpoint<RdmaRpcRequest, RdmaRpcResponse>> rpcEndpoint = rpcGroup.createServerEndpoint();
 	rpcEndpoint.bind(addr);
 	while(true){
-		serverEp.accept();
+		rpcEndpoint.accept();
 	}
 ```	
 Call the RPC service from a client
